@@ -1,0 +1,107 @@
+    <!-- end list -->
+
+   ```gitignore
+# Python
+pycache/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+.spec
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.hypothesis/
+.pytest_cache/
+pytestdebug.log
+*.mo
+*.pot
+*.po  
+
+# Virtualenv
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Flask
+instance/
+.webassets-cache/
+migrations/
+
+# Node.js / React (Vite)
+node_modules/
+dist/
+.parcel-cache/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.idea/
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.history/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vite
+.vite/
+*.vite
+
+# Operating System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE specific files
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+# Comment out the next two lines if you want to commit VS Code specific tasks and launch configurations
+# .vscode/tasks.json
+# .vscode/launch.json
+*.tmproj
+*.sublime-project
+*.sublime-workspace
+```
+
+  * **Nota:** He incluido `.vscode/settings.json`, `.vscode/tasks.json` y `.vscode/launch.json` para ser ignorados inicialmente. Si deseas compartir estas configuraciones específicas de VS Code con otros desarrolladores (si los hubiera), puedes eliminarlos del `.gitignore`. Para este proyecto, como me estás asistiendo, podrías considerar eliminarlos para que yo pueda usar las mismas configuraciones si es necesario. Por ahora, los mantendré ignorados.
