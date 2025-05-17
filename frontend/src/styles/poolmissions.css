@@ -1,0 +1,268 @@
+/* frontend/src/styles/poolmissions.css */
+
+.mission-pool-panel {
+    background-color: var(--color-bg-content-area, #172A45);
+    padding: 1.5rem;
+    border-radius: var(--border-radius-standard, 8px);
+    margin-bottom: 2rem; /* O según el layout del dashboard */
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+
+.mission-pool-panel h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover, #c9a36a);
+    padding-bottom: 0.5rem;
+}
+
+.pool-mission-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.pool-mission-item {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius-input, 4px);
+    border-left: 5px solid; /* El color se aplicará inline basado en Quest.color o un default */
+    display: flex;
+    flex-direction: column; /* Para apilar info y acciones */
+    gap: 0.75rem; /* Espacio entre elementos internos */
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+
+.pool-mission-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.pool-mission-item.status-COMPLETED {
+    opacity: 0.6;
+    background-color: #2a3f58; /* Un poco más oscuro si está completada */
+}
+.pool-mission-item.status-COMPLETED .pool-mission-title {
+    text-decoration: line-through;
+    color: var(--color-text-on-dark-muted, #8892b0);
+}
+
+
+.pool-mission-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.pool-mission-title {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    font-size: 1.15em;
+    font-weight: bold;
+    color: var(--color-text-on-dark, #EAEAEA);
+    margin: 0;
+    flex-grow: 1;
+}
+
+.pool-mission-focus-status {
+    font-size: 0.75em;
+    padding: 0.2em 0.6em;
+    border-radius: 10px;
+    color: var(--color-bg-deep-blue, #0A192F);
+    font-weight: bold;
+    margin-left: 0.5rem;
+    text-transform: uppercase;
+}
+.pool-mission-focus-status.ACTIVE {
+    background-color: var(--color-accent-secondary, #50C878); /* Verde */
+}
+.pool-mission-focus-status.DEFERRED {
+    background-color: var(--color-warning, #FFD700); /* Amarillo */
+}
+
+
+.pool-mission-details p {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 0.9em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin: 0.25rem 0;
+    white-space: pre-wrap;
+}
+
+.pool-mission-meta {
+    font-size: 0.8em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-bottom: 0.5rem;
+}
+.pool-mission-meta .quest-name-badge {
+    display: inline-block;
+    padding: 0.2em 0.5em;
+    background-color: var(--color-bg-deep-blue);
+    border: 1px solid; /* El color se aplicará inline */
+    border-radius: 3px;
+    margin-right: 0.5em;
+    font-weight: bold;
+}
+
+.pool-mission-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+.pool-mission-tag-badge {
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75em;
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+}
+
+
+.pool-mission-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem; /* Espacio entre botones */
+    margin-top: 0.5rem; /* Espacio si hay detalles arriba */
+}
+
+.pool-mission-actions button, .pool-mission-actions .action-icon {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    background-color: transparent;
+    color: var(--color-accent-gold, #B08D57);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+    font-size: 0.85em;
+}
+.pool-mission-actions button:hover, .pool-mission-actions .action-icon:hover {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+}
+.pool-mission-actions button.complete-btn:hover {
+    background-color: var(--color-accent-secondary, #50C878); /* Verde */
+    border-color: var(--color-accent-secondary, #50C878);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+.pool-mission-actions button.delete-btn:hover {
+    background-color: var(--color-error, #FF6B6B);
+    border-color: var(--color-error, #FF6B6B);
+    color: white;
+}
+.pool-mission-actions .action-icon { /* Para iconos como drag, focus toggle */
+    padding: 0.5rem; /* Hacerlos un poco más cuadrados */
+}
+
+/* PoolMissionForm - puede reutilizar mucho de quest-form o tag-form */
+.pool-mission-form-container { /* Contenedor si el form se muestra en un modal o sección */
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 2rem;
+    border-radius: var(--border-radius-standard, 8px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+.pool-mission-form-container h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+}
+.pool-mission-form .form-group {
+    margin-bottom: 1rem;
+}
+.pool-mission-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+}
+.pool-mission-form input[type="text"],
+.pool-mission-form input[type="number"],
+.pool-mission-form textarea,
+.pool-mission-form select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 1em;
+}
+.pool-mission-form input:focus,
+.pool-mission-form textarea:focus,
+.pool-mission-form select:focus {
+    outline: none;
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.5);
+}
+.pool-mission-form textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+.pool-mission-form .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+.pool-mission-form .form-actions button { /* Reutilizar de tag/quest form */
+    font-family: var(--font-primary, 'Merriweather', serif);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+}
+.pool-mission-form .form-actions .submit-btn {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border: none;
+}
+.pool-mission-form .form-actions .submit-btn:hover {
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+}
+.pool-mission-form .form-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+}
+.pool-mission-form .form-actions .cancel-btn:hover {
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+.pool-mission-form .error-message {
+    color: var(--color-error, #FF6B6B);
+    font-size: 0.9em;
+    margin-top: 0.5rem;
+}
+
+/* Filtros para el Mission Pool Panel */
+.mission-pool-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.mission-pool-filters label {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-size: 0.9em;
+    margin-right: 0.5rem;
+}
+.mission-pool-filters select,
+.mission-pool-filters input[type="text"] { /* Para un posible filtro de búsqueda de texto */
+    padding: 0.5rem;
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}

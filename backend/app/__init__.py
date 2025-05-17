@@ -37,7 +37,7 @@ def create_app(config_class=None):
     CORS(
     app,
     resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}}, # Especifica el origen de tu frontend
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # Métodos permitidos
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], # Métodos permitidos
     allow_headers=["Authorization", "Content-Type"], # Cabeceras permitidas
     supports_credentials=True # Si planeas usar cookies o autenticación basada en sesión con credenciales
 )
@@ -57,6 +57,9 @@ def create_app(config_class=None):
 
     from .api.tag_routes import tag_bp
     app.register_blueprint(tag_bp) 
+
+    from .api.pool_mission_routes import pool_mission_bp 
+    app.register_blueprint(pool_mission_bp)
 
     
     @app.route('/')
