@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app, g # Añadido 'g' para el contexto de la aplicación
-from app.models import User, db, Quest
+from app.models import User, db, Quest, Tag
 from app.auth_utils import generate_jwt, token_required, decode_jwt # decode_jwt no se usa aquí directamente pero es parte del módulo
 import re
 from datetime import date
@@ -64,7 +64,16 @@ def register():
             is_default_quest=True
         )
         db.session.add(default_quest)
-        
+
+        # --- Crear Tags por Defecto ---
+        default_tags_names = ["Urgent", "Important", "Personal", "Work", "Quick Win"]       
+        for tag_name in default_tags_names:
+            if not Tag.query.filter_by(user_id=new_user.id, name=tag_name).first():
+                default_tag = Tag(user_id=new_user.id, name=tag_name)
+                db.session.add(default_tag)
+
+
+
         # --- Comitear la transacción (Usuario y Quest por Defecto) ---
         db.session.commit()
 

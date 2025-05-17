@@ -7,7 +7,8 @@ import LoginForm from './components/auth/LoginForm';
 import DevPasswordResetForm from './components/auth/DevPasswordResetForm'; // Importar nuevo componente
 import ProtectedRoute from './components/routing/ProtectedRoute';
 
-import QuestPage from './pages/QuestPage'; // Importar la nueva página
+import QuestPage from './pages/QuestPage'; 
+import TagsPage from './pages/TagsPage';
 
 import './App.css';
 
@@ -83,7 +84,8 @@ function App() {
                     ) : (
                         <>
                             <Link to="/dashboard" className="nav-link">Dashboard</Link>
-                            <Link to="/quests" className="nav-link">My Quests</Link> {/* NUEVO ENLACE */}
+                            <Link to="/quests" className="nav-link">My Quests</Link> 
+                            <Link to="/tags" className="nav-link">My Tags</Link>
                             <button onClick={handleLogout} className="nav-button-logout">Logout</button>
                         </>
                     )}
@@ -106,10 +108,18 @@ function App() {
                         } 
                     />
                     <Route 
-                        path="/quests" // NUEVA RUTA
+                        path="/quests" 
                         element={
                             <ProtectedRoute>
                                 <QuestPage />
+                            </ProtectedRoute>
+                        } 
+                    />
+                    <Route 
+                        path="/tags" 
+                        element={
+                            <ProtectedRoute>
+                                <TagsPage />
                             </ProtectedRoute>
                         } 
                     />

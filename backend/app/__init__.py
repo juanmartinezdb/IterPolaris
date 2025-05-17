@@ -53,8 +53,12 @@ def create_app(config_class=None):
     app.register_blueprint(auth_bp)
 
     from .api.quest_routes import quest_bp
-    app.register_blueprint(quest_bp) 
+    app.register_blueprint(quest_bp)
 
+    from .api.tag_routes import tag_bp
+    app.register_blueprint(tag_bp) 
+
+    
     @app.route('/')
     def hello():
         return "Backend de Iter Polaris funcionando!"
