@@ -1,0 +1,226 @@
+/* frontend/src/styles/quests.css */
+
+.quests-page-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: var(--color-bg-content-area, #172A45);
+    border-radius: var(--border-radius-standard, 8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.quests-page-container h2 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 2em;
+}
+
+.quest-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 2rem; /* Espacio después del botón de "Añadir Quest" */
+}
+
+.quest-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1rem 1.5rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius-input, 4px);
+    border-left: 5px solid; /* El color se aplicará inline */
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+
+.quest-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.quest-info {
+    flex-grow: 1;
+}
+
+.quest-name {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 0 0 0.25rem 0;
+    color: var(--color-text-on-dark, #EAEAEA);
+}
+
+.quest-description {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 0.9em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin: 0;
+    white-space: pre-wrap; /* Para respetar saltos de línea en descripción */
+}
+
+.quest-actions button {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    background-color: transparent;
+    color: var(--color-accent-gold, #B08D57);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    padding: 0.5rem 0.8rem;
+    margin-left: 0.5rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+    font-size: 0.9em;
+}
+
+.quest-actions button:hover {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+}
+
+.quest-actions button.delete-btn:hover {
+    background-color: var(--color-error, #FF6B6B);
+    border-color: var(--color-error, #FF6B6B);
+    color: white;
+}
+
+.quest-default-badge {
+    font-size: 0.75em;
+    padding: 0.2em 0.5em;
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-bg-deep-blue, #0A192F);
+    border-radius: 3px;
+    margin-left: 0.5em;
+    font-weight: bold;
+    vertical-align: middle;
+}
+
+/* Estilos para el formulario (pueden ser similares a auth.css o específicos) */
+.quest-form {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1.5rem;
+    border-radius: var(--border-radius-standard, 8px);
+    margin-bottom: 2rem;
+    border: 1px solid var(--color-accent-gold, #B08D57);
+}
+
+.quest-form h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+}
+
+.quest-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.quest-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+}
+
+.quest-form input[type="text"],
+.quest-form textarea,
+.quest-form input[type="color"] { /* Estilo para el input de color */
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-deep-blue, #0A192F); /* Fondo más oscuro para contraste */
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 1em;
+}
+
+.quest-form input[type="text"]:focus,
+.quest-form textarea:focus,
+.quest-form input[type="color"]:focus {
+    outline: none;
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.5);
+}
+
+.quest-form textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.quest-form .color-picker-group {
+    display: flex;
+    align-items: center;
+}
+
+.quest-form input[type="color"] {
+    width: 50px; /* Ancho más pequeño para el input de color */
+    height: 40px; /* Altura para el input de color */
+    padding: 0.25rem; /* Menos padding para el input de color */
+    margin-left: 1rem;
+    border-radius: var(--border-radius-input, 4px);
+    cursor: pointer;
+}
+
+.quest-form .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem; /* Espacio entre botones */
+    margin-top: 1.5rem;
+}
+
+.quest-form .form-actions button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+
+.quest-form .form-actions .submit-btn {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border: none;
+}
+.quest-form .form-actions .submit-btn:hover {
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+}
+
+.quest-form .form-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+}
+.quest-form .form-actions .cancel-btn:hover {
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+
+.quest-form .error-message {
+    color: var(--color-error, #FF6B6B);
+    font-size: 0.9em;
+    margin-top: 0.5rem;
+}
+
+.add-quest-button {
+    display: block; /* Para que ocupe el ancho y se pueda centrar o alinear */
+    margin: 0 auto 2rem auto; /* Centrar y dar espacio inferior */
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-primary, 'Merriweather', serif);
+    background-color: var(--color-accent-secondary, #50C878); /* Verde para acción positiva */
+    color: var(--color-bg-deep-blue, #0A192F);
+    border: none;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+
+.add-quest-button:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+}

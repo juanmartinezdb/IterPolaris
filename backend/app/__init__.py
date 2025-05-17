@@ -6,11 +6,14 @@ import os
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
-# Asegúrate de que esta línea esté ANTES de crear la instancia de la app si la config depende de ello
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env')) # Sube un nivel para encontrar .env
+# Sube un nivel para encontrar .env en la carpeta 'backend'
+# (asumiendo que __file__ es backend/app/__init__.py)
+dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(dotenv_path)
 
 db = SQLAlchemy()
 migrate = Migrate()
+# cors = CORS() # Podemos inicializarlo dentro de create_app
 
 def create_app(config_class=None):
     """
@@ -19,22 +22,38 @@ def create_app(config_class=None):
     app = Flask(__name__)
 
     # Configuración de la aplicación
-    # Por ahora, una configuración simple. Se expandirá más adelante.
-    # Intenta cargar la URL de la base de datos desde las variables de entorno
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://user:password@host:port/dbname')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_very_secret_key_for_development') # Cambiar en producción
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') # Cambiar en producción
 
-    # Habilitar CORS
-    CORS(app) # Por ahora, permite todas las origins. Se puede restringir más adelante.
+    # Configuración JWT desde variables de entorno
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY')
+    app.config['JWT_ALGORITHM'] = os.environ.get('JWT_ALGORITHM', 'HS256')
+    app.config['JWT_ACCESS_TOKEN_EXPIRES_MINUTES'] = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES_MINUTES', 30))
 
-    # Inicializar extensiones
+    # Inicializar extensiones con la aplicación
     db.init_app(app)
-    migrate.init_app(app, db)
+    migrate.init_app(app, db) # Flask-Migrate necesita la app y la instancia de db
+    CORS(
+    app,
+    resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173"]}}, # Especifica el origen de tu frontend
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], # Métodos permitidos
+    allow_headers=["Authorization", "Content-Type"], # Cabeceras permitidas
+    supports_credentials=True # Si planeas usar cookies o autenticación basada en sesión con credenciales
+)
 
-    # Registrar Blueprints (se añadirán más tarde)
-    # from .api.routes import api_bp  # Ejemplo
-    # app.register_blueprint(api_bp, url_prefix='/api')
+    # Importar modelos DESPUÉS de inicializar db y migrate con la app.
+    # Esto asegura que los modelos se registren correctamente con SQLAlchemy
+    # en el contexto de la aplicación actual.
+    with app.app_context():
+        from . import models
+
+    # Registrar Blueprints
+    from .api.auth_routes import auth_bp
+    app.register_blueprint(auth_bp)
+
+    from .api.quest_routes import quest_bp
+    app.register_blueprint(quest_bp) 
 
     @app.route('/')
     def hello():

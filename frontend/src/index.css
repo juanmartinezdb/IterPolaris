@@ -1,68 +1,55 @@
+/* frontend/src/index.css */
+/* Define tus variables CSS globales aquí, inspiradas en prd_design_rules.md */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --font-primary: 'Merriweather', serif; /* Para títulos, elementos destacados */
+  --font-secondary: 'Lato', sans-serif;   /* Para cuerpo de texto, inputs */
+  
+  --color-bg-deep-blue: #0A192F;        /* Fondo principal de la aplicación */
+  --color-bg-content-area: #172A45;    /* Para contenedores, inputs, modales */
+  --color-bg-elevated: #21395A;       /* Para elementos ligeramente elevados */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --color-accent-gold: #B08D57;        /* Acento principal, botones, links */
+  --color-accent-gold-hover: #c9a36a;  /* Hover para el acento dorado */
+  --color-accent-secondary: #50C878;  /* Un verde para éxito o energía positiva */
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-text-on-dark: #EAEAEA;       /* Texto principal sobre fondos oscuros */
+  --color-text-on-dark-muted: #8892b0; /* Texto secundario o deshabilitado sobre fondos oscuros */
+  --color-text-on-accent: #0A192F;     /* Texto sobre botones dorados/claros */
+
+  --color-error: #FF6B6B;              /* Para mensajes de error */
+  --color-success: #50C878;            /* Para mensajes de éxito */
+  --color-warning: #FFD700;            /* Para advertencias */
+
+  --border-radius-standard: 8px;
+  --border-radius-input: 4px;
+  --border-radius-button: 4px; /* Igual que input para consistencia */
+
+  /* Transiciones */
+  --transition-swift: all 0.3s ease-in-out;
+
+  /* Aquí puedes importar las fuentes de Google Fonts si no lo haces en index.html */
+  /* @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:wght@400;700&display=swap'); */
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* Reseteo básico o normalización */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  font-family: var(--font-secondary); /* Fuente por defecto para el cuerpo */
+  background-color: var(--color-bg-deep-blue);
+  color: var(--color-text-on-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
-}
+/* Asegúrate que las fuentes estén disponibles. Puedes añadirlas en tu `index.html` o importarlas aquí */
+/* Ejemplo en public/index.html:
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap" rel="stylesheet">
+*/

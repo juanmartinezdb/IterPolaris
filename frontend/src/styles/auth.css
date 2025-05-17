@@ -1,0 +1,106 @@
+/* frontend/src/styles/auth.css */
+
+/* Inspirado en prd_design_rules.md */
+/* :root { (definir variables en index.css o App.css para acceso global si es necesario)
+    --font-primary: 'Merriweather', serif;
+    --font-secondary: 'Lato', sans-serif;
+    --color-bg-deep-blue: #0A192F;
+    --color-bg-content-area: #172A45; 
+    --color-accent-gold: #B08D57;
+    --color-accent-gold-hover: #c9a36a;
+    --color-text-on-dark: #EAEAEA;
+    --color-text-on-accent: #0A192F;
+    --color-error: #FF6B6B;
+    --color-success: #50C878; 
+    --border-radius-standard: 8px;
+    --border-radius-input: 4px;
+} */
+
+.auth-form-container {
+    display: flex;
+    flex-direction: column;
+    width: 350px; /* Un poco más de ancho */
+    margin: 50px auto;
+    padding: 30px; /* Más padding */
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    border-radius: var(--border-radius-standard, 8px);
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark, #EAEAEA);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); /* Sombra sutil para profundidad */
+}
+
+.auth-form-container h2 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 1.8em; /* Tamaño de título */
+}
+
+.auth-input {
+    margin-bottom: 20px; /* Más espacio */
+    padding: 12px 15px; /* Padding más generoso */
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-content-area, #172A45);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 1em; /* Tamaño de fuente del input */
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth-input::placeholder {
+    color: #8892b0; /* Color de placeholder más claro */
+}
+
+.auth-input:focus {
+    outline: none;
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.5); /* Resplandor dorado al enfocar */
+}
+
+.auth-button {
+    padding: 12px 15px;
+    border-radius: var(--border-radius-input, 4px);
+    border: none;
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    cursor: pointer;
+    font-weight: bold;
+    font-family: var(--font-primary, 'Merriweather', serif);
+    font-size: 1.1em; /* Tamaño de fuente del botón */
+    transition: background-color 0.3s ease;
+    text-transform: uppercase; /* Estilo de botón más "épico" */
+}
+
+.auth-button:hover {
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+}
+
+.auth-error-message {
+    color: var(--color-error, #FF6B6B);
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    text-align: center;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+
+.auth-success-message {
+    color: var(--color-success, #50C878);
+    margin-bottom: 15px;
+    font-size: 0.9em;
+    text-align: center;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+
+.auth-form-link {
+    color: var(--color-accent-gold, #B08D57);
+    text-decoration: none;
+    font-size: 0.9em;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+
+.auth-form-link:hover {
+    text-decoration: underline;
+    color: var(--color-accent-gold-hover, #c9a36a);
+}
