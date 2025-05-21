@@ -1,20 +1,19 @@
 // frontend/src/components/dashboard/MissionPoolPanel.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
+import { UserContext } from '../../contexts/UserContext'; // Importar UserContext
 import PoolMissionList from '../missions/pool/PoolMissionList';
 import PoolMissionForm from '../missions/pool/PoolMissionForm';
 import ConfirmationDialog from '../common/ConfirmationDialog';
-import QuestSelector from '../quests/QuestSelector'; // Importado para filtro
+import QuestSelector from '../quests/QuestSelector';
 import '../../styles/poolmissions.css';
-import '../../styles/dialog.css'; // Para el modal simulado
+import '../../styles/dialog.css';
 
 const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-
-function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde props (DashboardPage)
+function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
     const [allMissions, setAllMissions] = useState([]);
-    // Separar misiones por focus_status para renderizado
     const [activeFocusMissions, setActiveFocusMissions] = useState([]);
     const [deferredFocusMissions, setDeferredFocusMissions] = useState([]);
     
@@ -30,8 +29,11 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
     const [filterQuestId, setFilterQuestId] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
 
+    const { refreshUserStatsAndEnergy } = useContext(UserContext); // Use UserContext
+
     const fetchQuestsForColors = useCallback(async () => {
         const token = localStorage.getItem('authToken');
+        if (!token) return;
         try {
             const response = await axios.get(API_QUESTS_URL, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -42,7 +44,7 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
             });
             setQuestColors(colors);
         } catch (err) {
-            console.error("Failed to fetch quests for colors:", err);
+            console.error("MissionPoolPanel: Failed to fetch quests for colors:", err);
         }
     }, []);
 
@@ -50,6 +52,10 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
         setIsLoading(true);
         setError(null);
         const token = localStorage.getItem('authToken');
+        if (!token) {
+            setIsLoading(false);
+            return;
+        }
         
         const params = new URLSearchParams();
         if (activeTagFilters && activeTagFilters.length > 0) {
@@ -69,11 +75,11 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
             });
             const missions = response.data || [];
             setAllMissions(missions); 
-            setActiveFocusMissions(missions.filter(m => m.focus_status === 'ACTIVE'));
-            setDeferredFocusMissions(missions.filter(m => m.focus_status === 'DEFERRED'));
-
+            setActiveFocusMissions(missions.filter(m => m.status === 'PENDING' && m.focus_status === 'ACTIVE'));
+            setDeferredFocusMissions(missions.filter(m => m.status === 'PENDING' && m.focus_status === 'DEFERRED'));
+            // Completed missions can be shown in a separate list if desired, or filtered out if not needed in this panel
         } catch (err) {
-            console.error("Failed to fetch pool missions:", err);
+            console.error("MissionPoolPanel: Failed to fetch pool missions:", err);
             setError(err.response?.data?.error || "Failed to fetch pool missions.");
             setAllMissions([]);
             setActiveFocusMissions([]);
@@ -87,7 +93,7 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
         fetchQuestsForColors();
     }, [fetchQuestsForColors]);
 
-    useEffect(() => { // Separar useEffect para fetchPoolMissions para que se ejecute cuando cambien los filtros
+    useEffect(() => {
         fetchPoolMissions();
     }, [fetchPoolMissions]);
 
@@ -104,8 +110,9 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
         setShowForm(false);
         setEditingMission(null);
     };
-    const handleFormSubmit = () => {
-        fetchPoolMissions();
+    const handleFormSubmit = () => { // Called after successful form submission
+        fetchPoolMissions(); // Refetch all pool missions
+        refreshUserStatsAndEnergy(); // Refresh global user stats and energy (in case points/energy changed via form, though less common for pool)
         handleFormClose();
     };
 
@@ -113,66 +120,84 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
         setMissionToDelete(mission);
         setShowConfirmDialog(true);
     };
+
     const handleConfirmDelete = async () => {
         if (!missionToDelete) return;
         const token = localStorage.getItem('authToken');
-        // setIsLoading(true); // Opcional para el diálogo
+        setError(null);
         try {
             await axios.delete(`${API_POOL_MISSIONS_URL}/${missionToDelete.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchPoolMissions();
+            fetchPoolMissions(); // Refetch missions
+            // If deleting a completed mission had reversed points/energy, backend would handle it.
+            // We then call refreshUserStatsAndEnergy to update frontend displays.
+            // For pool missions, deletion typically doesn't award/revoke points unless it was completed.
+            // Assuming backend handles any reversal logic for completed items if applicable on delete.
+            refreshUserStatsAndEnergy();
         } catch (err) {
+            console.error("MissionPoolPanel: Delete error", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to delete mission.");
         } finally {
             setShowConfirmDialog(false);
             setMissionToDelete(null);
-            // setIsLoading(false);
         }
     };
 
     const handleToggleFocusStatus = async (mission, newFocusStatus) => {
         const token = localStorage.getItem('authToken');
+        setError(null);
         try {
             await axios.patch(`${API_POOL_MISSIONS_URL}/${mission.id}/focus`, 
                 { focus_status: newFocusStatus },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             fetchPoolMissions(); 
+            // Focus status change does not affect points/energy, so no need to call refreshUserStatsAndEnergy
         } catch (err) {
+            console.error("MissionPoolPanel: Focus toggle error", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to update focus status.");
-            console.error("Error updating focus status:", err);
         }
     };
     
     const handleToggleCompleteStatus = async (mission, newStatus) => {
         const token = localStorage.getItem('authToken');
+        setError(null);
         try {
-            const missionDataPayload = {
-                title: mission.title, // El backend espera todos los campos para PUT o los que cambian para PATCH
-                description: mission.description,
-                energy_value: mission.energy_value,
-                points_value: mission.points_value,
-                quest_id: mission.quest_id,
-                tag_ids: mission.tags.map(t => t.id),
-                focus_status: mission.focus_status,
-                status: newStatus // El campo que cambia
+            // The PUT endpoint for PoolMission expects all relevant fields.
+            // We are only changing 'status' here based on UI interaction.
+            // The backend's PUT /api/pool-missions/:id handles the points/energy logic.
+            const payload = {
+                ...mission, // Send existing mission data
+                tags: mission.tags.map(t => t.id), // Send tag IDs
+                status: newStatus
             };
+            delete payload.id; // Don't send id in body for PUT
+            delete payload.created_at;
+            delete payload.updated_at;
+            delete payload.quest_name; // Not part of the model for PUT
 
-            await axios.put(`${API_POOL_MISSIONS_URL}/${mission.id}`, 
-                missionDataPayload,
+            const response = await axios.put(`${API_POOL_MISSIONS_URL}/${mission.id}`, 
+                payload,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
-            fetchPoolMissions();
-            // Lógica de gamificación se activará en Tarea 8
+            fetchPoolMissions(); // Refresh list
+
+            if (response.data && (response.data.user_total_points !== undefined || response.data.user_level !== undefined)) {
+                refreshUserStatsAndEnergy({
+                    total_points: response.data.user_total_points,
+                    level: response.data.user_level
+                });
+            } else {
+                 refreshUserStatsAndEnergy();
+            }
         } catch (err) {
+            console.error("MissionPoolPanel: Complete toggle error", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to update mission status.");
-            console.error("Error updating mission status:", err.response?.data || err);
         }
     };
     
-    // Simulación de Modal (para PoolMissionForm)
-  const renderModal = () => {
+    const renderModal = () => {
         if (!showForm) return null;
         return (
             <div className="dialog-overlay">
@@ -187,17 +212,19 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
         );
     };
 
+    const completedMissions = allMissions.filter(m => m.status === 'COMPLETED');
+
     return (
-        <div className="mission-pool-panel">
+        <div className="mission-pool-panel dashboard-panel"> {/* Added dashboard-panel class */}
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
                 <h3>Mission Pool</h3>
                 <button 
                     onClick={handleOpenCreateForm} 
                     className="add-quest-button" 
                     title="Add New Pool Mission"
-                    style={{margin: 0}} 
+                    style={{margin: 0, fontSize: '0.9em', padding: '0.5em 1em'}} 
                 >
-                    + Add Mission
+                    + Add
                 </button>
             </div>
 
@@ -207,16 +234,17 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
                     <QuestSelector 
                         selectedQuestId={filterQuestId}
                         onQuestChange={setFilterQuestId}
-                        isFilter={true} // <--- ASEGÚRATE QUE ESTÉ ASÍ PARA EL FILTRO
+                        isFilter={true}
                         disabled={isLoading}
                     />
                 </div>
                 <div>
                     <label htmlFor="filter-status-pool">Status:</label>
                     <select id="filter-status-pool" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} disabled={isLoading}>
-                        <option value="">All Statuses</option>
+                        <option value="">All (Pending)</option> {/* Default to pending if "All" for status is confusing */}
                         <option value="PENDING">Pending</option>
                         <option value="COMPLETED">Completed</option>
+                         <option value="ALL_STATUSES">All Statuses</option> {/* If you want to show all including completed here */}
                     </select>
                 </div>
             </div>
@@ -224,11 +252,13 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
             {isLoading && <p style={{textAlign: 'center'}}>Loading missions...</p>}
             {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
 
-            {!isLoading && !error && allMissions.length === 0 && (
-                <p style={{ textAlign: 'center', marginTop: '2rem' }}>No pool missions found matching your criteria. Try creating some!</p>
+            {!isLoading && !error && activeFocusMissions.length === 0 && deferredFocusMissions.length === 0 && completedMissions.length === 0 && (
+                <p style={{ textAlign: 'center', marginTop: '2rem', fontStyle: 'italic', color: 'var(--color-text-on-dark-muted)' }}>
+                    No pool missions here. Add some!
+                </p>
             )}
 
-            {!isLoading && !error && (activeFocusMissions.length > 0 || deferredFocusMissions.length > 0) && (
+            {!isLoading && !error && (
                 <>
                     {activeFocusMissions.length > 0 && (
                         <PoolMissionList
@@ -249,6 +279,18 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters desde prop
                             onDeleteMission={handleDeleteRequest}
                             onToggleFocusStatus={handleToggleFocusStatus}
                             onToggleCompleteStatus={handleToggleCompleteStatus}
+                            questColors={questColors}
+                        />
+                    )}
+                    {/* Optional: Show completed pool missions here if filterStatus is 'COMPLETED' or 'ALL_STATUSES' */}
+                    {filterStatus === 'COMPLETED' && completedMissions.length > 0 && (
+                         <PoolMissionList
+                            missions={completedMissions}
+                            title="Completed"
+                            onEditMission={handleOpenEditForm} // Likely disabled for completed
+                            onDeleteMission={handleDeleteRequest}
+                            onToggleFocusStatus={handleToggleFocusStatus} // Likely N/A for completed
+                            onToggleCompleteStatus={handleToggleCompleteStatus} // To revert
                             questColors={questColors}
                         />
                     )}

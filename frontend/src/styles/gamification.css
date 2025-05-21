@@ -65,20 +65,16 @@
 .energy-bar-yellow { background-color: var(--color-warning, #F1C40F); }
 .energy-bar-neutral { background-color: var(--color-text-on-dark-muted, #8892b0); }
 
-.energy-bar-indicator {
+.energy-bar-indicator-img { /* Nuevo estilo para el indicador de imagen */
     position: absolute;
-    top: -2px; /* Para centrarlo verticalmente en la barra de 12px */
-    transform: translateX(-50%); /* Centrar el indicador en su posición 'left' */
-    width: 16px; /* Tamaño del indicador */
-    height: 16px;
-    /* background-image: url('/path/to/star-icon.svg'); o usar un carácter */
-    /* background-size: contain; */
-    color: var(--color-accent-gold); /* Color de la estrella */
-    font-size: 16px; /* Tamaño de la estrella si es texto */
-    line-height: 16px;
-    text-align: center;
+    top: 50%; /* Centrar verticalmente */
+    transform: translate(-50%, -50%); /* Centrar la imagen en su 'left' y verticalmente */
+    width: 24px;  /* Ancho deseado para la imagen del indicador */
+    height: 24px; /* Alto deseado para la imagen del indicador */
     transition: left 0.5s ease-in-out;
-    text-shadow: 0 0 3px rgba(0,0,0,0.7);
+    /* background: none; ya no es necesario si usamos <img> */
+    /* color: transparent; ya no es necesario */
+    z-index: 1; /* Para asegurar que esté sobre la barra de llenado */
 }
 
 

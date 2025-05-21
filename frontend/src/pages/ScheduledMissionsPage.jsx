@@ -1,16 +1,16 @@
 // frontend/src/pages/ScheduledMissionsPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react'; // Añadir useContext
 import axios from 'axios';
+import { UserContext } from '../contexts/UserContext'; // Importar UserContext
 import ScheduledMissionList from '../components/missions/scheduled/ScheduledMissionList';
 import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
-import QuestSelector from '../components/quests/QuestSelector'; // For filtering
-// import TagFilter from '../components/tags/TagFilter'; // For filtering by tags - if we use the sidebar one or a local one
+import QuestSelector from '../components/quests/QuestSelector';
 import '../styles/scheduledmissions.css';
-import '../styles/dialog.css'; // For modal simulation
+import '../styles/dialog.css'; 
 
 const API_SCHEDULED_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/scheduled-missions`;
-const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`; // For quest colors
+const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
 function ScheduledMissionsPage() {
     const [missions, setMissions] = useState([]);
@@ -22,16 +22,16 @@ function ScheduledMissionsPage() {
     const [missionToDelete, setMissionToDelete] = useState(null);
     const [questColors, setQuestColors] = useState({});
 
-    // Filters
     const [filterQuestId, setFilterQuestId] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
-    const [filterStartDate, setFilterStartDate] = useState(''); // YYYY-MM-DD
-    const [filterEndDate, setFilterEndDate] = useState('');   // YYYY-MM-DD
-    // TODO: Implement Tag filtering similar to MissionPoolPanel if needed here,
-    // or rely on global sidebar tag filter (Task 9)
+    const [filterStartDate, setFilterStartDate] = useState('');
+    const [filterEndDate, setFilterEndDate] = useState('');
+
+    const { refreshUserStatsAndEnergy } = useContext(UserContext); // Usar el contexto
 
     const fetchQuestColors = useCallback(async () => {
         const token = localStorage.getItem('authToken');
+        if (!token) return;
         try {
             const response = await axios.get(API_QUESTS_URL, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -42,7 +42,7 @@ function ScheduledMissionsPage() {
             });
             setQuestColors(colors);
         } catch (err) {
-            console.error("Failed to fetch quests for colors:", err);
+            console.error("ScheduledMissionsPage: Failed to fetch quests for colors:", err);
         }
     }, []);
     
@@ -50,13 +50,18 @@ function ScheduledMissionsPage() {
         setIsLoading(true);
         setError(null);
         const token = localStorage.getItem('authToken');
+        if (!token) {
+            setIsLoading(false);
+            setMissions([]);
+            return;
+        }
         
         const params = new URLSearchParams();
         if (filterQuestId) params.append('quest_id', filterQuestId);
         if (filterStatus) params.append('status', filterStatus);
         if (filterStartDate) params.append('filter_start_date', filterStartDate);
         if (filterEndDate) params.append('filter_end_date', filterEndDate);
-        // if (activeTagFilters && activeTagFilters.length > 0) { // For global tag filters
+        // if (activeTagFilters && activeTagFilters.length > 0) { 
         //     params.append('tags', activeTagFilters.join(','));
         // }
 
@@ -67,7 +72,7 @@ function ScheduledMissionsPage() {
             });
             setMissions(response.data || []);
         } catch (err) {
-            console.error("Failed to fetch scheduled missions:", err);
+            console.error("ScheduledMissionsPage: Failed to fetch scheduled missions:", err);
             setError(err.response?.data?.error || "Failed to fetch scheduled missions.");
             setMissions([]);
         } finally {
@@ -95,8 +100,11 @@ function ScheduledMissionsPage() {
         setShowForm(false);
         setEditingMission(null);
     };
-    const handleFormSubmit = () => {
+    const handleFormSubmit = () => { // Llamado después de un POST o PUT exitoso al form
         fetchScheduledMissions();
+        // Si el form actualiza puntos/energía, el backend ya lo hizo.
+        // Llamamos a refreshUserStatsAndEnergy para actualizar la UI global.
+        refreshUserStatsAndEnergy(); 
         handleFormClose();
     };
 
@@ -108,12 +116,24 @@ function ScheduledMissionsPage() {
     const handleConfirmDelete = async () => {
         if (!missionToDelete) return;
         const token = localStorage.getItem('authToken');
+        setError(null);
         try {
-            await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${missionToDelete.id}`, {
+            // El backend /api/scheduled-missions/:id (DELETE) ahora devuelve user_total_points y user_level
+            const response = await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${missionToDelete.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             fetchScheduledMissions();
+            // Actualizar stats si el backend los devuelve (porque borrar una completada podría revertir puntos)
+            if (response.data && (response.data.user_total_points !== undefined)) {
+                 refreshUserStatsAndEnergy({
+                    total_points: response.data.user_total_points,
+                    level: response.data.user_level
+                });
+            } else {
+                refreshUserStatsAndEnergy(); // Forzar re-fetch general
+            }
         } catch (err) {
+            console.error("ScheduledMissionsPage: Delete error", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to delete mission.");
         } finally {
             setShowConfirmDialog(false);
@@ -123,17 +143,25 @@ function ScheduledMissionsPage() {
 
     const handleUpdateMissionStatus = async (mission, newStatus) => {
         const token = localStorage.getItem('authToken');
+        setError(null);
         try {
-            // The PATCH endpoint on the backend handles the response structure
-            await axios.patch(`${API_SCHEDULED_MISSIONS_URL}/${mission.id}/status`, 
+            const response = await axios.patch(`${API_SCHEDULED_MISSIONS_URL}/${mission.id}/status`, 
                 { status: newStatus },
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             fetchScheduledMissions(); 
-            // Gamification logging for 'COMPLETED' is handled by the backend.
+            
+            if (response.data && (response.data.user_total_points !== undefined || response.data.user_level !== undefined)) {
+                 refreshUserStatsAndEnergy({ 
+                    total_points: response.data.user_total_points, 
+                    level: response.data.user_level 
+                });
+            } else {
+                refreshUserStatsAndEnergy();
+            }
         } catch (err) {
+            console.error("ScheduledMissionsPage: Update status error", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to update mission status.");
-            console.error("Error updating mission status:", err.response?.data || err);
         }
     };
     
@@ -144,7 +172,7 @@ function ScheduledMissionsPage() {
                  <div className="dialog-content" style={{maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
                     <ScheduledMissionForm
                         missionToEdit={editingMission}
-                        onFormSubmit={handleFormSubmit}
+                        onFormSubmit={handleFormSubmit} // Esta función ahora refrescará stats globales
                         onCancel={handleFormClose}
                     />
                 </div>
@@ -194,7 +222,7 @@ function ScheduledMissionsPage() {
                 </div>
             </div>
             
-            {isLoading && <p style={{textAlign: 'center'}}>Loading scheduled missions...</p>}
+            {isLoading && missions.length === 0 && <p style={{textAlign: 'center'}}>Loading scheduled missions...</p>}
             {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
 
             {!isLoading && !error && (

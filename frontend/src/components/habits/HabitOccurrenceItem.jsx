@@ -1,8 +1,8 @@
 // frontend/src/components/habits/HabitOccurrenceItem.jsx
 import React from 'react';
-import '../../styles/habits.css';
+import '../../styles/habits.css'; // Asegúrate que los estilos necesarios estén aquí
 
-// ... (getContrastColor, formatTimeForDisplay helpers) ...
+// Helper para getContrastColor (debe estar disponible)
 function getContrastColor(hexColor) {
     if (!hexColor || typeof hexColor !== 'string' || hexColor.length < 4) return 'var(--color-text-on-dark, #EAEAEA)';
     let r, g, b;
@@ -25,40 +25,47 @@ const formatTimeForDisplay = (isoString) => {
 
 
 function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
-    const questColor = occurrence.quest_id && questColors[occurrence.quest_id] 
-        ? questColors[occurrence.quest_id] 
-        : 'var(--color-accent-gold)';
+    
+    // Clave para el color:
+    let questColor = 'var(--color-accent-gold)'; // Color por defecto si no se encuentra la quest
+    if (occurrence.quest_id && questColors && questColors[occurrence.quest_id]) {
+        questColor = questColors[occurrence.quest_id];
+    }
+    
     const textColorForQuestBadge = getContrastColor(questColor);
 
     const handleStatusClick = (clickedStatus) => {
-        // Si se hace clic en el estado actual (y no es PENDING), revertir a PENDING.
-        // Si se hace clic en un estado diferente, cambiar a ese nuevo estado.
         if (occurrence.status === clickedStatus && clickedStatus !== 'PENDING') {
             onUpdateStatus(occurrence.id, 'PENDING');
         } else if (occurrence.status !== clickedStatus) {
             onUpdateStatus(occurrence.id, clickedStatus);
         }
-        // Si es PENDING y se hace clic en PENDING (teóricamente no debería haber botón para PENDING), no hacer nada.
     };
+    
+    const durationDisplay = occurrence.rec_duration_minutes 
+        ? ` (~${occurrence.rec_duration_minutes} min)`
+        : '';
 
     return (
         <li 
             className={`habit-occurrence-item status-${occurrence.status}`}
-            style={{ borderLeftColor: questColor }}
+            style={{ borderLeftColor: questColor }} // Aquí se aplica el color de la Quest
         >
             <div className="habit-occurrence-main">
                 <div className="habit-occurrence-info">
                     <span className="habit-occurrence-time">
                         {formatTimeForDisplay(occurrence.scheduled_start_datetime)}
-                        {occurrence.description && occurrence.rec_duration_minutes && // Solo mostrar si hay duración
-                            <span className="habit-occurrence-duration"> (~{occurrence.rec_duration_minutes} min)</span>
-                        }
+                        {durationDisplay}
                     </span>
                     <h5 className="habit-occurrence-title">{occurrence.title}</h5>
-                    {occurrence.quest_name && (
+                    {occurrence.quest_name && ( 
                         <span 
-                            className="quest-name-badge-sm"
-                            style={{ backgroundColor: questColor, color: textColorForQuestBadge, borderColor: questColor }}
+                            className="quest-name-badge-sm" 
+                            style={{ 
+                                backgroundColor: questColor, 
+                                color: textColorForQuestBadge,
+                                borderColor: questColor 
+                            }}
                         >
                             {occurrence.quest_name}
                         </span>
@@ -69,16 +76,17 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
                         className={`status-btn complete ${occurrence.status === 'COMPLETED' ? 'active' : ''}`}
                         onClick={() => handleStatusClick('COMPLETED')}
                         title={occurrence.status === 'COMPLETED' ? "Mark Pending" : "Mark Completed"}
-                        // No deshabilitar, permitir clic para revertir
                     >✓</button>
                     <button 
                         className={`status-btn skip ${occurrence.status === 'SKIPPED' ? 'active' : ''}`}
                         onClick={() => handleStatusClick('SKIPPED')}
                         title={occurrence.status === 'SKIPPED' ? "Mark Pending" : "Mark Skipped"}
-                        // No deshabilitar, permitir clic para revertir
                     >✕</button>
                 </div>
             </div>
+            {occurrence.description && (
+                 <p className="habit-occurrence-description">{occurrence.description}</p>
+            )}
             <div className="habit-occurrence-meta">
                 <span>⚡ {occurrence.energy_value > 0 ? `+${occurrence.energy_value}` : occurrence.energy_value}</span>
                 <span style={{marginLeft: '0.5rem'}}>⭐ {occurrence.points_value}</span>

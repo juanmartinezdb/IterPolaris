@@ -1,19 +1,23 @@
 // frontend/src/components/routing/ProtectedRoute.jsx
-import React from 'react';
+import React, { useContext } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { UserContext } from '../../contexts/UserContext'; // Importar
 
 const ProtectedRoute = ({ children }) => {
-    const isAuthenticated = !!localStorage.getItem('authToken');
+    const { currentUser, isLoadingProfile } = useContext(UserContext);
     const location = useLocation();
 
-    if (!isAuthenticated) {
-        // Redirigir a la página de login, guardando la ubicación actual
-        // para que puedan ser redirigidos de vuelta después del login.
+    if (isLoadingProfile) {
+        // Muestra un loader mientras se verifica el estado de autenticación
+        // Podría ser un loader más estilizado o global
+        return <div className="app-container-loading" style={{textAlign: 'center', padding: '50px'}}>Verifying Your Path...</div>;
+    }
+
+    if (!currentUser) {
+        // Si después de cargar, no hay usuario, redirigir a login
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Si está autenticado, renderiza los hijos (si se pasan directamente)
-    // o el Outlet (si se usa para rutas anidadas).
     return children ? children : <Outlet />; 
 };
 

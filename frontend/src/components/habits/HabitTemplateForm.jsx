@@ -1,6 +1,7 @@
 // frontend/src/components/habits/HabitTemplateForm.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
+import { UserContext } from '../../contexts/UserContext';
 import QuestSelector from '../quests/QuestSelector';
 import TagSelector from '../tags/TagSelector';
 import '../../styles/habittemplates.css';
@@ -11,15 +12,12 @@ const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 const formatDateForInput = (isoOrDateString) => {
     if (!isoOrDateString) return '';
     try {
-        if (typeof isoOrDateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(isoOrDateString)) {
-            return isoOrDateString;
-        }
         const date = new Date(isoOrDateString);
-        return date.toISOString().split('T')[0];
-    } catch (e) {
-        console.error("Error formatting date for input:", e);
-        return '';
-    }
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch (e) { return ''; }
 };
 
 const formatTimeForInput = (isoOrTimeString) => {
@@ -28,143 +26,151 @@ const formatTimeForInput = (isoOrTimeString) => {
         if (typeof isoOrTimeString === 'string' && (isoOrTimeString.match(/^\d{2}:\d{2}(:\d{2})?$/)) ) {
              return isoOrTimeString.substring(0,5);
         }
-        const date = new Date(`1970-01-01T${isoOrTimeString}`);
-        if (isNaN(date.getTime())) throw new Error("Invalid time string");
-        
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
+        const date = new Date(`1970-01-01T${isoOrTimeString}Z`); // Assume UTC if only time
+        const hours = date.getUTCHours().toString().padStart(2, '0');
+        const minutes = date.getUTCMinutes().toString().padStart(2, '0');
         return `${hours}:${minutes}`;
-    } catch (e) {
-        console.error("Error formatting time for input:", e, "Input was:", isoOrTimeString);
-        return '';
-    }
+    } catch (e) { return ''; }
 };
 
 const DAYS_OF_WEEK = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-const RECURRENCE_TYPE_DAILY = 'DAILY'; // Solo tenemos 'DAILY' como tipo especial ahora
+const RECURRENCE_TYPE_DAILY = 'DAILY';
 
 function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [defaultEnergyValue, setDefaultEnergyValue] = useState(0);
-    const [defaultPointsValue, setDefaultPointsValue] = useState(0);
-    
-    const [recByDay, setRecByDay] = useState([]);
-    const [recStartTime, setRecStartTime] = useState('');
-    const [recDurationMinutes, setRecDurationMinutes] = useState(60);
-    const [recPatternStartDate, setRecPatternStartDate] = useState(formatDateForInput(new Date().toISOString()));
-    const [recEndsOnDate, setRecEndsOnDate] = useState('');
-    const [isActive, setIsActive] = useState(true);
-    
-    const [questId, setQuestId] = useState(null);
-    const [selectedTagIds, setSelectedTagIds] = useState([]);
+    const { currentUser } = useContext(UserContext);
+    const [formData, setFormData] = useState({
+        title: '',
+        description: '',
+        defaultEnergyValue: 5,
+        defaultPointsValue: 10,
+        recByDay: [],
+        recStartTime: '',
+        recDurationMinutes: 60,
+        recPatternStartDate: formatDateForInput(new Date().toISOString()),
+        recEndsOnDate: '',
+        isActive: true,
+        questId: null, // Será string UUID o null
+        selectedTagIds: []
+    });
 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isFetchingDefaultQuest, setIsFetchingDefaultQuest] = useState(false);
     const isEditing = !!templateToEdit;
 
-    const fetchAndSetDefaultQuest = useCallback(async () => {
-        if (!isEditing && questId === null) {
-            setIsFetchingDefaultQuest(true);
-            const token = localStorage.getItem('authToken');
-            try {
-                const response = await axios.get(API_QUESTS_URL, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+    // Efecto para cargar datos de templateToEdit o default quest para NUEVOS templates
+    useEffect(() => {
+        const loadInitialData = async () => {
+            if (isEditing && templateToEdit) {
+                setFormData({
+                    title: templateToEdit.title || '',
+                    description: templateToEdit.description || '',
+                    defaultEnergyValue: templateToEdit.default_energy_value || 0,
+                    defaultPointsValue: templateToEdit.default_points_value || 0,
+                    recByDay: templateToEdit.rec_by_day || [],
+                    recStartTime: formatTimeForInput(templateToEdit.rec_start_time),
+                    recDurationMinutes: templateToEdit.rec_duration_minutes || 60,
+                    recPatternStartDate: formatDateForInput(templateToEdit.rec_pattern_start_date),
+                    recEndsOnDate: formatDateForInput(templateToEdit.rec_ends_on_date),
+                    isActive: templateToEdit.is_active === undefined ? true : templateToEdit.is_active,
+                    questId: templateToEdit.quest_id || null,
+                    selectedTagIds: templateToEdit.tags ? templateToEdit.tags.map(tag => tag.id) : []
                 });
-                const quests = response.data || [];
-                const defaultQuest = quests.find(q => q.is_default_quest);
-                if (defaultQuest) setQuestId(defaultQuest.id);
-            } catch (err) {
-                console.error("Failed to fetch default quest:", err);
-            } finally {
-                setIsFetchingDefaultQuest(false);
+            } else if (!isEditing) { // Creando nuevo
+                setIsFetchingDefaultQuest(true);
+                const token = localStorage.getItem('authToken');
+                try {
+                    const response = await axios.get(API_QUESTS_URL, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const quests = response.data || [];
+                    const defaultQuest = quests.find(q => q.is_default_quest);
+                    setFormData(prev => ({
+                        ...prev, // Mantener valores por defecto de creación
+                        title: '', description: '', defaultEnergyValue: 5, defaultPointsValue: 10,
+                        recByDay: [], recStartTime: '', recDurationMinutes: 60, 
+                        recPatternStartDate: formatDateForInput(new Date().toISOString()), recEndsOnDate: '',
+                        isActive: true, selectedTagIds: [],
+                        questId: defaultQuest ? defaultQuest.id : (quests.length > 0 ? quests[0].id : null) // Asignar default o primera
+                    }));
+                } catch (err) {
+                    console.error("HabitTemplateForm: Failed to fetch default quest:", err);
+                    setFormData(prev => ({ ...prev, questId: null })); // Fallback
+                } finally {
+                    setIsFetchingDefaultQuest(false);
+                }
             }
-        }
-    }, [isEditing, questId]);
+        };
+        loadInitialData();
+    }, [templateToEdit, isEditing]); // Solo depende de templateToEdit e isEditing
 
-    useEffect(() => {
-        fetchAndSetDefaultQuest();
-    }, [fetchAndSetDefaultQuest]);
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
 
-    useEffect(() => {
-        if (isEditing && templateToEdit) {
-            setTitle(templateToEdit.title || '');
-            setDescription(templateToEdit.description || '');
-            setDefaultEnergyValue(templateToEdit.default_energy_value || 0);
-            setDefaultPointsValue(templateToEdit.default_points_value || 0);
-            setRecByDay(templateToEdit.rec_by_day || []);
-            setRecStartTime(formatTimeForInput(templateToEdit.rec_start_time));
-            setRecDurationMinutes(templateToEdit.rec_duration_minutes || 60);
-            setRecPatternStartDate(formatDateForInput(templateToEdit.rec_pattern_start_date));
-            setRecEndsOnDate(formatDateForInput(templateToEdit.rec_ends_on_date));
-            setIsActive(templateToEdit.is_active === undefined ? true : templateToEdit.is_active);
-            setQuestId(templateToEdit.quest_id || null);
-            setSelectedTagIds(templateToEdit.tags ? templateToEdit.tags.map(tag => tag.id) : []);
-        } else {
-            setTitle('');
-            setDescription('');
-            setDefaultEnergyValue(5);
-            setDefaultPointsValue(10);
-            setRecByDay([]);
-            setRecStartTime('');
-            setRecDurationMinutes(60);
-            setRecPatternStartDate(formatDateForInput(new Date().toISOString()));
-            setRecEndsOnDate('');
-            setIsActive(true);
-            setSelectedTagIds([]);
-        }
-    }, [templateToEdit, isEditing, fetchAndSetDefaultQuest]);
+    const handleQuestChange = (newQuestId) => {
+        setFormData(prev => ({ ...prev, questId: newQuestId || null }));
+    };
 
-    const handleRecByDayChange = (value) => {
-        if (value === RECURRENCE_TYPE_DAILY) {
-            // Si se selecciona DAILY, se deseleccionan los días específicos y viceversa.
-            setRecByDay(prev => prev.includes(RECURRENCE_TYPE_DAILY) ? [] : [RECURRENCE_TYPE_DAILY]);
-        } else { // Día específico de la semana
-            // Si se selecciona un día específico, se deselecciona DAILY.
-            const newRecByDay = recByDay.filter(d => d !== RECURRENCE_TYPE_DAILY);
-            if (newRecByDay.includes(value)) {
-                setRecByDay(newRecByDay.filter(day => day !== value));
-            } else {
-                setRecByDay([...newRecByDay, value]);
-            }
-        }
+    const handleTagsChange = (newTagIds) => {
+        setFormData(prev => ({ ...prev, selectedTagIds: newTagIds }));
     };
     
+    const handleRecByDayChange = (dayValue) => {
+        setFormData(prev => {
+            let newRecByDay = [...prev.recByDay];
+            if (dayValue === RECURRENCE_TYPE_DAILY) {
+                newRecByDay = newRecByDay.includes(RECURRENCE_TYPE_DAILY) ? [] : [RECURRENCE_TYPE_DAILY];
+            } else {
+                newRecByDay = newRecByDay.filter(d => d !== RECURRENCE_TYPE_DAILY); // Desmarcar DAILY si se selecciona día específico
+                if (newRecByDay.includes(dayValue)) {
+                    newRecByDay = newRecByDay.filter(day => day !== dayValue);
+                } else {
+                    newRecByDay.push(dayValue);
+                }
+            }
+            return { ...prev, recByDay: newRecByDay };
+        });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
 
-        if (!title.trim()) {
+        if (!formData.title.trim()) {
             setError('Title is required.'); setIsLoading(false); return;
         }
-        if (!recPatternStartDate) {
+        if (!formData.recPatternStartDate) {
             setError('Recurrence pattern start date is required.'); setIsLoading(false); return;
         }
-        if (recEndsOnDate && new Date(recEndsOnDate) < new Date(recPatternStartDate)) {
+        if (formData.recEndsOnDate && new Date(formData.recEndsOnDate) < new Date(formData.recPatternStartDate)) {
             setError('End date cannot be before start date.'); setIsLoading(false); return;
         }
-        if (recByDay.length === 0) {
+        if (formData.recByDay.length === 0) {
             setError('Please select at least one recurrence day/type (e.g., Daily, MO, TU).'); setIsLoading(false); return;
         }
-        if (recStartTime && !recStartTime.match(/^\d{2}:\d{2}$/)) {
+        if (formData.recStartTime && !formData.recStartTime.match(/^\d{2}:\d{2}$/)) {
              setError('Start time must be in HH:MM format if provided.'); setIsLoading(false); return;
         }
 
-        const templateData = {
-            title: title.trim(),
-            description: description.trim() || null,
-            default_energy_value: parseInt(defaultEnergyValue, 10),
-            default_points_value: parseInt(defaultPointsValue, 10),
-            rec_by_day: recByDay,
-            rec_start_time: recStartTime ? `${recStartTime}:00` : null,
-            rec_duration_minutes: parseInt(recDurationMinutes, 10) || null,
-            rec_pattern_start_date: recPatternStartDate,
-            rec_ends_on_date: recEndsOnDate || null,
-            is_active: isActive,
-            quest_id: questId,
-            tag_ids: selectedTagIds,
+        const templateDataPayload = {
+            title: formData.title.trim(),
+            description: formData.description.trim() || null,
+            default_energy_value: parseInt(formData.defaultEnergyValue, 10),
+            default_points_value: parseInt(formData.defaultPointsValue, 10),
+            rec_by_day: formData.recByDay,
+            rec_start_time: formData.recStartTime ? `${formData.recStartTime}:00` : null, // Añadir segundos para backend
+            rec_duration_minutes: parseInt(formData.recDurationMinutes, 10) || null,
+            rec_pattern_start_date: formData.recPatternStartDate,
+            rec_ends_on_date: formData.recEndsOnDate || null,
+            is_active: formData.isActive,
+            quest_id: formData.questId,
+            tag_ids: formData.selectedTagIds,
         };
 
         const token = localStorage.getItem('authToken');
@@ -172,41 +178,42 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
 
         try {
             if (isEditing) {
-                await axios.put(`${API_HABIT_TEMPLATES_URL}/${templateToEdit.id}`, templateData, config);
+                await axios.put(`${API_HABIT_TEMPLATES_URL}/${templateToEdit.id}`, templateDataPayload, config);
             } else {
-                await axios.post(API_HABIT_TEMPLATES_URL, templateData, config);
+                await axios.post(API_HABIT_TEMPLATES_URL, templateDataPayload, config);
             }
-            onFormSubmit();
+            onFormSubmit(); // Esta función debería llamar a refreshUserStatsAndEnergy del contexto si es necesario
         } catch (err) {
             console.error("Failed to save habit template:", err.response?.data || err.message);
             const errorData = err.response?.data;
-            let errorMessage = `Failed to ${isEditing ? 'update' : 'create'} habit template.`;
+            let errorMessageText = `Failed to ${isEditing ? 'update' : 'create'} habit template.`;
             if (errorData?.errors && typeof errorData.errors === 'object') {
                  const firstErrorKey = Object.keys(errorData.errors)[0];
                  const messages = errorData.errors[firstErrorKey];
-                 errorMessage = `${firstErrorKey.replace(/_/g, ' ')}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
+                 errorMessageText = `${firstErrorKey.replace(/_/g, ' ')}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
             } else if (errorData?.error) {
-                errorMessage = errorData.error;
+                errorMessageText = errorData.error;
             }
-            setError(errorMessage);
+            setError(errorMessageText);
         } finally {
             setIsLoading(false);
         }
     };
+
+    const formDisabled = isLoading || isFetchingDefaultQuest;
 
     return (
         <div className="habit-template-form-container">
             <h3>{isEditing ? 'Edit Habit Template' : 'Create New Habit Template'}</h3>
             {error && <p className="error-message">{error}</p>}
             <form onSubmit={handleSubmit} className="habit-template-form">
-                {/* ... otros campos del formulario (title, description, etc.) ... */}
                 <div className="form-group">
                     <label htmlFor="ht-title">Title:</label>
-                    <input type="text" id="ht-title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isLoading || isFetchingDefaultQuest} />
+                    <input type="text" id="ht-title" name="title" value={formData.title} onChange={handleChange} required disabled={formDisabled} />
                 </div>
                 <div className="form-group">
                     <label htmlFor="ht-description">Description (Optional):</label>
-                    <textarea id="ht-description" value={description} onChange={(e) => setDescription(e.target.value)} rows="2" disabled={isLoading || isFetchingDefaultQuest} />
+                    <textarea id="ht-description" name="description" value={formData.description} onChange={handleChange} rows="2" disabled={formDisabled} />
                 </div>
 
                 <fieldset className="form-fieldset">
@@ -218,9 +225,9 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
                                 <input 
                                     type="checkbox" 
                                     value={RECURRENCE_TYPE_DAILY} 
-                                    checked={recByDay.includes(RECURRENCE_TYPE_DAILY)} 
+                                    checked={formData.recByDay.includes(RECURRENCE_TYPE_DAILY)} 
                                     onChange={() => handleRecByDayChange(RECURRENCE_TYPE_DAILY)} 
-                                    disabled={isLoading || isFetchingDefaultQuest}
+                                    disabled={formDisabled}
                                 /> {RECURRENCE_TYPE_DAILY}
                             </label>
                         </div>
@@ -230,59 +237,58 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
                                     <input 
                                         type="checkbox" 
                                         value={day} 
-                                        checked={recByDay.includes(day)} 
+                                        checked={formData.recByDay.includes(day)} 
                                         onChange={() => handleRecByDayChange(day)} 
-                                        disabled={isLoading || isFetchingDefaultQuest || recByDay.includes(RECURRENCE_TYPE_DAILY)} 
+                                        disabled={formDisabled || formData.recByDay.includes(RECURRENCE_TYPE_DAILY)} 
                                     /> {day}
                                 </label>
                             ))}
                         </div>
+                         {formData.recByDay.length === 0 && <p className="error-message" style={{fontSize: '0.8em', marginTop: '0.2em'}}>Select at least one day or "DAILY".</p>}
                     </div>
-                    {/* ... otros campos de recurrencia (start_time, duration, start_date, end_date) ... */}
                     <div className="form-group-row">
                         <div className="form-group">
                             <label htmlFor="ht-rec-start-time">Start Time (Optional):</label>
-                            <input type="time" id="ht-rec-start-time" value={recStartTime} onChange={(e) => setRecStartTime(e.target.value)} disabled={isLoading || isFetchingDefaultQuest} />
+                            <input type="time" id="ht-rec-start-time" name="recStartTime" value={formData.recStartTime} onChange={handleChange} disabled={formDisabled} />
                         </div>
                         <div className="form-group">
                             <label htmlFor="ht-rec-duration">Duration (Minutes, Optional):</label>
-                            <input type="number" id="ht-rec-duration" value={recDurationMinutes} min="1" onChange={(e) => setRecDurationMinutes(parseInt(e.target.value, 10))} placeholder="e.g., 30" disabled={isLoading || isFetchingDefaultQuest} />
+                            <input type="number" id="ht-rec-duration" name="recDurationMinutes" value={formData.recDurationMinutes} min="1" onChange={handleChange} placeholder="e.g., 30" disabled={formDisabled} />
                         </div>
                     </div>
                      <div className="form-group-row">
                         <div className="form-group">
                             <label htmlFor="ht-rec-pattern-start-date">Pattern Starts On:</label>
-                            <input type="date" id="ht-rec-pattern-start-date" value={recPatternStartDate} onChange={(e) => setRecPatternStartDate(e.target.value)} required disabled={isLoading || isFetchingDefaultQuest} />
+                            <input type="date" id="ht-rec-pattern-start-date" name="recPatternStartDate" value={formData.recPatternStartDate} onChange={handleChange} required disabled={formDisabled} />
                         </div>
                         <div className="form-group">
                             <label htmlFor="ht-rec-ends-on-date">Pattern Ends On (Optional):</label>
-                            <input type="date" id="ht-rec-ends-on-date" value={recEndsOnDate} onChange={(e) => setRecEndsOnDate(e.target.value)} min={recPatternStartDate} disabled={isLoading || isFetchingDefaultQuest} />
+                            <input type="date" id="ht-rec-ends-on-date" name="recEndsOnDate" value={formData.recEndsOnDate} min={formData.recPatternStartDate} onChange={handleChange} disabled={formDisabled} />
                         </div>
                     </div>
                 </fieldset>
 
-                {/* ... fieldsets para Values & Associations, y el checkbox Is Active ... */}
                 <fieldset className="form-fieldset">
                     <legend>Values & Associations</legend>
                     <div className="form-group-row">
                         <div className="form-group">
                             <label htmlFor="ht-energy">Default Energy:</label>
-                            <input type="number" id="ht-energy" value={defaultEnergyValue} onChange={(e) => setDefaultEnergyValue(parseInt(e.target.value, 10))} required disabled={isLoading || isFetchingDefaultQuest} />
+                            <input type="number" id="ht-energy" name="defaultEnergyValue" value={formData.defaultEnergyValue} onChange={handleChange} required disabled={formDisabled} />
                         </div>
                         <div className="form-group">
                             <label htmlFor="ht-points">Default Points:</label>
-                            <input type="number" id="ht-points" value={defaultPointsValue} min="0" onChange={(e) => setDefaultPointsValue(parseInt(e.target.value, 10))} required disabled={isLoading || isFetchingDefaultQuest} />
+                            <input type="number" id="ht-points" name="defaultPointsValue" value={formData.defaultPointsValue} min="0" onChange={handleChange} required disabled={formDisabled} />
                         </div>
                     </div>
                     <div className="form-group">
                         <label htmlFor="ht-quest">Associate with Quest:</label>
-                        <QuestSelector selectedQuestId={questId} onQuestChange={setQuestId} disabled={isLoading || isFetchingDefaultQuest} />
+                        <QuestSelector selectedQuestId={formData.questId} onQuestChange={handleQuestChange} disabled={formDisabled} isFilter={false} />
                     </div>
-                    <TagSelector selectedTagIds={selectedTagIds} onSelectedTagsChange={setSelectedTagIds} />
+                    <TagSelector selectedTagIds={formData.selectedTagIds} onSelectedTagsChange={handleTagsChange} />
                 </fieldset>
                 
                 <div className="form-group checkbox-label" style={{justifyContent: 'flex-start', marginTop: '1rem'}}>
-                    <input type="checkbox" id="ht-is-active" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} disabled={isLoading || isFetchingDefaultQuest} />
+                    <input type="checkbox" id="ht-is-active" name="isActive" checked={formData.isActive} onChange={handleChange} disabled={formDisabled} />
                     <label htmlFor="ht-is-active" style={{marginBottom: 0, marginLeft: '0.5rem'}}> Habit is Active (generates occurrences)</label>
                 </div>
 

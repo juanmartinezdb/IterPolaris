@@ -273,3 +273,13 @@ body {
     /* ... */
     position: relative; /* Necesario para que el footer se posicione correctamente si hay overflow */
 }
+
+.app-container-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-size: 1.5em;
+  color: var(--color-accent-gold);
+  font-family: var(--font-primary);
+}
