@@ -1,7 +1,7 @@
 from . import db # Importa la instancia db de __init__.py
 from sqlalchemy.dialects.postgresql import UUID, TEXT, BOOLEAN, INTEGER, TIMESTAMP, DATE, TIME, ARRAY
 from sqlalchemy import UniqueConstraint, CheckConstraint
-from datetime import datetime
+from datetime import datetime, timezone 
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -210,19 +210,20 @@ class HabitOccurrence(db.Model):
     def __repr__(self):
         return f'<HabitOccurrence {self.title} on {self.scheduled_start_datetime}>'
 
+
 class EnergyLog(db.Model):
     __tablename__ = 'energy_log'
-    # PRD usa BIGSERIAL, SQLAlchemy usa db.BigInteger con autoincrement=True por defecto para PKs integer
     id = db.Column(db.BigInteger, primary_key=True, autoincrement=True)
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    source_entity_type = db.Column(TEXT, nullable=True) # POOL_MISSION, SCHEDULED_MISSION, HABIT_OCCURRENCE
-    source_entity_id = db.Column(UUID(as_uuid=True), nullable=True) # FK to the specific task, no direct db constraint
+    source_entity_type = db.Column(TEXT, nullable=True) 
+    source_entity_id = db.Column(UUID(as_uuid=True), nullable=True) 
     energy_value = db.Column(INTEGER, nullable=False)
-    reason_text = db.Column(TEXT, nullable=True) # e.g., "Completed Mission X"
-    created_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
+    reason_text = db.Column(TEXT, nullable=True)
+    is_active = db.Column(BOOLEAN, default=True, nullable=False) # NUEVO CAMPO
+    created_at = db.Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False) # Usar lambda para asegurar nueva fecha en cada inserción
 
     __table_args__ = (
         CheckConstraint(source_entity_type.in_(['POOL_MISSION', 'SCHEDULED_MISSION', 'HABIT_OCCURRENCE', None]), name='ck_energy_log_source_type'),
     )
     def __repr__(self):
-        return f'<EnergyLog for User {self.user_id}: {self.energy_value}>'
+        return f'<EnergyLog User {self.user_id}: {self.energy_value}, Active: {self.is_active}>'

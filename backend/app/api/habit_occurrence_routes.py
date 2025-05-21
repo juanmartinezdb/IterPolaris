@@ -4,7 +4,7 @@ from app.models import db, User, HabitTemplate, HabitOccurrence, EnergyLog, Ques
 from app.auth_utils import token_required
 import uuid
 from datetime import datetime, timezone, date
-from app.services.gamification_services import update_user_stats_after_mission # Import service
+from app.services.gamification_services import update_user_stats_after_mission
 
 habit_occurrence_bp = Blueprint('habit_occurrence_bp', __name__, url_prefix='/api/habit-occurrences')
 
@@ -27,8 +27,12 @@ def get_habit_occurrences():
     end_date_filter_str = request.args.get('end_date')     
 
     try:
-        query = HabitOccurrence.query.options(db.joinedload(HabitOccurrence.quest))\
-                                   .filter_by(user_id=current_user.id)
+        # Eager load Quest and the HabitTemplate to get duration
+        query = HabitOccurrence.query.options(
+            db.joinedload(HabitOccurrence.quest),
+            db.joinedload(HabitOccurrence.template) # Eager load template
+        ).filter_by(user_id=current_user.id)
+
 
         if template_id_str:
             try:
@@ -52,10 +56,7 @@ def get_habit_occurrences():
         
         occurrences_data = []
         for occ in occurrences:
-            # Eager load duration from template as it's not on occurrence directly
-            duration_minutes = None
-            if occ.template: # Assuming template relationship is loaded or accessible
-                 duration_minutes = occ.template.rec_duration_minutes
+            duration_minutes = occ.template.rec_duration_minutes if occ.template else None
 
             occurrences_data.append({
                 "id": str(occ.id),
@@ -64,8 +65,8 @@ def get_habit_occurrences():
                 "quest_id": str(occ.quest_id) if occ.quest_id else None,
                 "quest_name": occ.quest.name if occ.quest else None,
                 "title": occ.title,
-                "description": occ.description, # This is from the occurrence (denormalized)
-                "rec_duration_minutes": duration_minutes, # Added from template
+                "description": occ.description, 
+                "rec_duration_minutes": duration_minutes, # Include duration
                 "energy_value": occ.energy_value,
                 "points_value": occ.points_value,
                 "scheduled_start_datetime": occ.scheduled_start_datetime.isoformat(),
@@ -80,6 +81,7 @@ def get_habit_occurrences():
     except Exception as e:
         current_app.logger.error(f"Error fetching habit occurrences for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch habit occurrences"}), 500
+
 
 @habit_occurrence_bp.route('/<uuid:occurrence_id>/status', methods=['PATCH'])
 @token_required
@@ -98,12 +100,11 @@ def update_habit_occurrence_status(occurrence_id):
 
         old_status = occurrence.status
         
-        if old_status == new_status.upper():
+        if old_status == new_status.upper(): # No change
             quest_name_val = occurrence.quest.name if occurrence.quest else None
             duration_minutes = occurrence.template.rec_duration_minutes if occurrence.template else None
             return jsonify({
-                "id": str(occurrence.id),
-                "habit_template_id": str(occurrence.habit_template_id),
+                "id": str(occurrence.id), "habit_template_id": str(occurrence.habit_template_id),
                 "title": occurrence.title, "description": occurrence.description,
                  "rec_duration_minutes": duration_minutes,
                 "energy_value": occurrence.energy_value, "points_value": occurrence.points_value,
@@ -113,39 +114,39 @@ def update_habit_occurrence_status(occurrence_id):
                 "actual_completion_datetime": occurrence.actual_completion_datetime.isoformat() if occurrence.actual_completion_datetime else None,
                 "quest_id": str(occurrence.quest_id) if occurrence.quest_id else None,
                 "quest_name": quest_name_val,
-                "user_total_points": current_user.total_points,
-                "user_level": current_user.level,
+                "user_total_points": current_user.total_points, "user_level": current_user.level,
                 "updated_at": occurrence.updated_at.isoformat()
             }), 200
 
         occurrence.status = new_status.upper()
         
         points_change = 0
-        energy_value_change = None
         log_reason = None
+        is_completion_event = False
 
         if occurrence.status == 'COMPLETED':
             occurrence.actual_completion_datetime = datetime.now(timezone.utc)
             if old_status != 'COMPLETED': 
                 points_change = occurrence.points_value
-                energy_value_change = occurrence.energy_value
                 log_reason = f"Completed Habit: {occurrence.title}"
+                is_completion_event = True
         elif old_status == 'COMPLETED' and (occurrence.status == 'PENDING' or occurrence.status == 'SKIPPED'): 
             occurrence.actual_completion_datetime = None
             points_change = -occurrence.points_value
-            energy_value_change = -occurrence.energy_value
             log_reason = f"Reverted Habit Occurrence completion: {occurrence.title}"
-        elif occurrence.status != 'COMPLETED':
+            is_completion_event = False
+        elif occurrence.status != 'COMPLETED': # e.g., PENDING to SKIPPED or SKIPPED to PENDING
             occurrence.actual_completion_datetime = None
         
-        if log_reason:
+        if log_reason: # Only call if points/energy logic needs to be triggered
             update_user_stats_after_mission(
                 user=current_user,
-                points_change=points_change,
-                energy_value_change=energy_value_change,
+                points_to_change=points_change,
+                energy_value_for_log=occurrence.energy_value, 
                 source_entity_type='HABIT_OCCURRENCE',
                 source_entity_id=occurrence.id,
-                reason_text=log_reason
+                reason_text=log_reason,
+                is_completion=is_completion_event
             )
             
         db.session.commit()
@@ -156,7 +157,7 @@ def update_habit_occurrence_status(occurrence_id):
             "id": str(occurrence.id),
             "habit_template_id": str(occurrence.habit_template_id),
             "title": occurrence.title, "description": occurrence.description,
-             "rec_duration_minutes": duration_minutes,
+            "rec_duration_minutes": duration_minutes,
             "energy_value": occurrence.energy_value, "points_value": occurrence.points_value,
             "scheduled_start_datetime": occurrence.scheduled_start_datetime.isoformat(),
             "scheduled_end_datetime": occurrence.scheduled_end_datetime.isoformat(),

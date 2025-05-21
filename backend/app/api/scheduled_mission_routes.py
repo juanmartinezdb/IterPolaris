@@ -4,24 +4,28 @@ from app.models import db, User, Quest, Tag, ScheduledMission, EnergyLog
 from app.auth_utils import token_required
 import uuid
 from datetime import datetime, timezone, date
-from app.services.gamification_services import update_user_stats_after_mission # Import service
+from app.services.gamification_services import update_user_stats_after_mission
 
 scheduled_mission_bp = Blueprint('scheduled_mission_bp', __name__, url_prefix='/api/scheduled-missions')
 
+# Funciones validate_iso_datetime, validate_scheduled_mission_data, parse_date_query_param
+# create_scheduled_mission, get_scheduled_missions, get_scheduled_mission, update_scheduled_mission
+# (sin cambios respecto a la versión anterior que te di, o con las correcciones ya aplicadas para PUT)
+# ... (Asegúrate que la función update_scheduled_mission también usa la nueva lógica para 'status' si lo permite)
 def validate_iso_datetime(dt_str):
     if not dt_str:
         return None, "Datetime string cannot be empty."
     try:
         if dt_str.endswith('Z'):
             dt_obj = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
-        elif '+' in dt_str[10:] or '-' in dt_str[10:]: # Check for timezone offset
+        elif '+' in dt_str[10:] or '-' in dt_str[10:]: 
             dt_obj = datetime.fromisoformat(dt_str)
-        else: # Assume naive, convert to UTC
+        else: 
             dt_obj = datetime.fromisoformat(dt_str)
-            if dt_obj.tzinfo is None: # If still naive after fromisoformat
-                dt_obj = dt_obj.replace(tzinfo=timezone.utc) # Treat as UTC
+            if dt_obj.tzinfo is None: 
+                dt_obj = dt_obj.replace(tzinfo=timezone.utc) 
         
-        return dt_obj.astimezone(timezone.utc), None # Ensure it's UTC
+        return dt_obj.astimezone(timezone.utc), None
     except ValueError as e:
         return None, f"Invalid ISO 8601 datetime format: {e}"
     except Exception as e: 
@@ -214,7 +218,7 @@ def get_scheduled_missions():
             if tag_ids_list_str:
                 try:
                     tag_uuids = [uuid.UUID(tid) for tid in tag_ids_list_str]
-                    for tag_uuid_item in tag_uuids: # Ensure mission has ALL specified tags
+                    for tag_uuid_item in tag_uuids: 
                         query = query.filter(ScheduledMission.tags.any(Tag.id == tag_uuid_item))
                 except ValueError:
                     current_app.logger.warning(f"Invalid tag_id format in tags filter: {tag_ids_filter_str}")
@@ -303,6 +307,8 @@ def update_scheduled_mission(mission_id):
 
     try:
         old_status = mission_to_update.status
+        original_mission_energy = mission_to_update.energy_value
+        original_mission_points = mission_to_update.points_value
         
         if 'title' in data: mission_to_update.title = data['title'].strip()
         if 'description' in data: mission_to_update.description = data['description'].strip() if data.get('description') else None
@@ -335,8 +341,7 @@ def update_scheduled_mission(mission_id):
             tag_ids_str_list = data.get('tag_ids', [])
             valid_tag_uuids = []
             for tid_str in tag_ids_str_list:
-                try:
-                    valid_tag_uuids.append(uuid.UUID(tid_str))
+                try: valid_tag_uuids.append(uuid.UUID(tid_str))
                 except ValueError: pass
             
             if valid_tag_uuids:
@@ -345,35 +350,32 @@ def update_scheduled_mission(mission_id):
             else:
                 mission_to_update.tags = []
 
-        # Status change and gamification logic is primarily handled by the PATCH endpoint
-        # However, if status is part of the PUT data, we should respect it,
-        # but avoid double-counting if PATCH is called immediately after.
-        # For PUT, we assume the client sends the *intended final state*.
         if 'status' in data:
             new_status = data['status']
             if new_status != old_status and new_status in ['PENDING', 'COMPLETED', 'SKIPPED']:
                 mission_to_update.status = new_status
                 points_change = 0
-                energy_value_change = None
                 log_reason = None
+                is_completion_event = False
 
-                if new_status == 'COMPLETED': # Just completed
-                    points_change = mission_to_update.points_value
-                    energy_value_change = mission_to_update.energy_value
+                if new_status == 'COMPLETED': 
+                    points_change = original_mission_points
                     log_reason = f"Completed Scheduled Mission: {mission_to_update.title}"
-                elif old_status == 'COMPLETED' and (new_status == 'PENDING' or new_status == 'SKIPPED'): # Reverted
-                    points_change = -mission_to_update.points_value
-                    energy_value_change = -mission_to_update.energy_value
+                    is_completion_event = True
+                elif old_status == 'COMPLETED' and (new_status == 'PENDING' or new_status == 'SKIPPED'): 
+                    points_change = -original_mission_points
                     log_reason = f"Reverted Scheduled Mission completion: {mission_to_update.title}"
+                    is_completion_event = False
                 
                 if log_reason:
                     update_user_stats_after_mission(
                         user=current_user,
-                        points_change=points_change,
-                        energy_value_change=energy_value_change,
+                        points_to_change=points_change,
+                        energy_value_for_log=original_mission_energy,
                         source_entity_type='SCHEDULED_MISSION',
                         source_entity_id=mission_to_update.id,
-                        reason_text=log_reason
+                        reason_text=log_reason,
+                        is_completion=is_completion_event
                     )
         
         db.session.commit()
@@ -401,44 +403,6 @@ def update_scheduled_mission(mission_id):
         current_app.logger.error(f"Error updating scheduled mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update scheduled mission"}), 500
 
-
-@scheduled_mission_bp.route('/<uuid:mission_id>', methods=['DELETE'])
-@token_required
-def delete_scheduled_mission(mission_id):
-    current_user = g.current_user
-    try:
-        mission_to_delete = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
-        if not mission_to_delete:
-            return jsonify({"error": "Scheduled Mission not found or access denied"}), 404
-
-        # If the mission was completed, points/energy should be reversed
-        if mission_to_delete.status == 'COMPLETED':
-             update_user_stats_after_mission(
-                user=current_user,
-                points_change=-mission_to_delete.points_value,
-                energy_value_change=-mission_to_delete.energy_value,
-                source_entity_type='SCHEDULED_MISSION',
-                source_entity_id=mission_to_delete.id,
-                reason_text=f"Deleted completed Scheduled Mission: {mission_to_delete.title}"
-            )
-        
-        mission_to_delete.tags = [] 
-        db.session.flush()
-        
-        mission_title_deleted = mission_to_delete.title
-        db.session.delete(mission_to_delete)
-        db.session.commit()
-        
-        return jsonify({
-            "message": f"Scheduled Mission '{mission_title_deleted}' deleted successfully.",
-            "user_total_points": current_user.total_points, # Return updated stats
-            "user_level": current_user.level
-        }), 200
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error deleting scheduled mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
-        return jsonify({"error": "Failed to delete scheduled mission"}), 500
-
 @scheduled_mission_bp.route('/<uuid:mission_id>/status', methods=['PATCH'])
 @token_required
 def update_scheduled_mission_status(mission_id):
@@ -456,7 +420,6 @@ def update_scheduled_mission_status(mission_id):
 
         old_status = mission.status
         
-        # Prevent re-processing if status is already the target status
         if old_status == new_status.upper():
              quest_name_val = mission.quest.name if mission.quest else None
              mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission.tags]
@@ -476,26 +439,27 @@ def update_scheduled_mission_status(mission_id):
         mission.status = new_status.upper()
         
         points_change = 0
-        energy_value_change = None
         log_reason = None
+        is_completion_event = False
 
-        if mission.status == 'COMPLETED': # Transition TO COMPLETED
+        if mission.status == 'COMPLETED': # Transition TO COMPLETED from PENDING or SKIPPED
             points_change = mission.points_value
-            energy_value_change = mission.energy_value
             log_reason = f"Completed Scheduled Mission: {mission.title}"
+            is_completion_event = True
         elif old_status == 'COMPLETED' and (mission.status == 'PENDING' or mission.status == 'SKIPPED'): # Reverting FROM COMPLETED
             points_change = -mission.points_value
-            energy_value_change = -mission.energy_value
             log_reason = f"Reverted Scheduled Mission completion: {mission.title}"
+            is_completion_event = False
         
-        if log_reason: # Only call if there was a status change that affects stats
+        if log_reason: 
             update_user_stats_after_mission(
                 user=current_user,
-                points_change=points_change,
-                energy_value_change=energy_value_change,
+                points_to_change=points_change,
+                energy_value_for_log=mission.energy_value, 
                 source_entity_type='SCHEDULED_MISSION',
                 source_entity_id=mission.id,
-                reason_text=log_reason
+                reason_text=log_reason,
+                is_completion=is_completion_event
             )
             
         db.session.commit()
@@ -520,3 +484,40 @@ def update_scheduled_mission_status(mission_id):
         db.session.rollback()
         current_app.logger.error(f"Error updating status for scheduled mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update mission status"}), 500
+
+@scheduled_mission_bp.route('/<uuid:mission_id>', methods=['DELETE'])
+@token_required
+def delete_scheduled_mission(mission_id):
+    current_user = g.current_user
+    try:
+        mission_to_delete = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
+        if not mission_to_delete:
+            return jsonify({"error": "Scheduled Mission not found or access denied"}), 404
+
+        if mission_to_delete.status == 'COMPLETED':
+             update_user_stats_after_mission(
+                user=current_user,
+                points_to_change=-mission_to_delete.points_value,
+                energy_value_for_log=mission_to_delete.energy_value,
+                source_entity_type='SCHEDULED_MISSION',
+                source_entity_id=mission_to_delete.id,
+                reason_text=f"Deleted completed Scheduled Mission: {mission_to_delete.title}",
+                is_completion=False 
+            )
+        
+        mission_to_delete.tags = [] 
+        db.session.flush()
+        
+        mission_title_deleted = mission_to_delete.title
+        db.session.delete(mission_to_delete)
+        db.session.commit()
+        
+        return jsonify({
+            "message": f"Scheduled Mission '{mission_title_deleted}' deleted successfully.",
+            "user_total_points": current_user.total_points,
+            "user_level": current_user.level
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting scheduled mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
+        return jsonify({"error": "Failed to delete scheduled mission"}), 500

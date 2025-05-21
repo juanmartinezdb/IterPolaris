@@ -1,7 +1,7 @@
 // frontend/src/pages/ScheduledMissionsPage.jsx
-import React, { useState, useEffect, useCallback, useContext } from 'react'; // Añadir useContext
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
-import { UserContext } from '../contexts/UserContext'; // Importar UserContext
+import { UserContext } from '../contexts/UserContext'; 
 import ScheduledMissionList from '../components/missions/scheduled/ScheduledMissionList';
 import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
@@ -27,7 +27,7 @@ function ScheduledMissionsPage() {
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
 
-    const { refreshUserStatsAndEnergy } = useContext(UserContext); // Usar el contexto
+    const { refreshUserStatsAndEnergy } = useContext(UserContext); 
 
     const fetchQuestColors = useCallback(async () => {
         const token = localStorage.getItem('authToken');
@@ -61,9 +61,6 @@ function ScheduledMissionsPage() {
         if (filterStatus) params.append('status', filterStatus);
         if (filterStartDate) params.append('filter_start_date', filterStartDate);
         if (filterEndDate) params.append('filter_end_date', filterEndDate);
-        // if (activeTagFilters && activeTagFilters.length > 0) { 
-        //     params.append('tags', activeTagFilters.join(','));
-        // }
 
         try {
             const response = await axios.get(API_SCHEDULED_MISSIONS_URL, {
@@ -78,7 +75,7 @@ function ScheduledMissionsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [filterQuestId, filterStatus, filterStartDate, filterEndDate /*, activeTagFilters */]);
+    }, [filterQuestId, filterStatus, filterStartDate, filterEndDate]);
 
     useEffect(() => {
         fetchQuestColors();
@@ -100,11 +97,16 @@ function ScheduledMissionsPage() {
         setShowForm(false);
         setEditingMission(null);
     };
-    const handleFormSubmit = () => { // Llamado después de un POST o PUT exitoso al form
+    const handleFormSubmit = (updatedMissionDataFromBackend) => { 
         fetchScheduledMissions();
-        // Si el form actualiza puntos/energía, el backend ya lo hizo.
-        // Llamamos a refreshUserStatsAndEnergy para actualizar la UI global.
-        refreshUserStatsAndEnergy(); 
+        if (updatedMissionDataFromBackend && (updatedMissionDataFromBackend.user_total_points !== undefined)) {
+            refreshUserStatsAndEnergy({
+                total_points: updatedMissionDataFromBackend.user_total_points,
+                level: updatedMissionDataFromBackend.user_level
+            });
+        } else {
+            refreshUserStatsAndEnergy();
+        }
         handleFormClose();
     };
 
@@ -118,19 +120,17 @@ function ScheduledMissionsPage() {
         const token = localStorage.getItem('authToken');
         setError(null);
         try {
-            // El backend /api/scheduled-missions/:id (DELETE) ahora devuelve user_total_points y user_level
             const response = await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${missionToDelete.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             fetchScheduledMissions();
-            // Actualizar stats si el backend los devuelve (porque borrar una completada podría revertir puntos)
             if (response.data && (response.data.user_total_points !== undefined)) {
                  refreshUserStatsAndEnergy({
                     total_points: response.data.user_total_points,
                     level: response.data.user_level
                 });
             } else {
-                refreshUserStatsAndEnergy(); // Forzar re-fetch general
+                refreshUserStatsAndEnergy(); 
             }
         } catch (err) {
             console.error("ScheduledMissionsPage: Delete error", err.response?.data || err.message);
@@ -151,7 +151,7 @@ function ScheduledMissionsPage() {
             );
             fetchScheduledMissions(); 
             
-            if (response.data && (response.data.user_total_points !== undefined || response.data.user_level !== undefined)) {
+            if (response.data && (response.data.user_total_points !== undefined)) {
                  refreshUserStatsAndEnergy({ 
                     total_points: response.data.user_total_points, 
                     level: response.data.user_level 
@@ -172,7 +172,7 @@ function ScheduledMissionsPage() {
                  <div className="dialog-content" style={{maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
                     <ScheduledMissionForm
                         missionToEdit={editingMission}
-                        onFormSubmit={handleFormSubmit} // Esta función ahora refrescará stats globales
+                        onFormSubmit={handleFormSubmit} 
                         onCancel={handleFormClose}
                     />
                 </div>
