@@ -78,12 +78,11 @@ def get_habit_occurrences():
         current_app.logger.error(f"Error fetching habit occurrences for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch habit occurrences"}), 500
 
-
 @habit_occurrence_bp.route('/<uuid:occurrence_id>/status', methods=['PATCH'])
 @token_required
 def update_habit_occurrence_status(occurrence_id):
     data = request.get_json()
-    current_user = g.current_user
+    current_user = g.current_user # type: User
     new_status = data.get('status')
 
     if not new_status or new_status.upper() not in ['PENDING', 'COMPLETED', 'SKIPPED']:
@@ -96,41 +95,60 @@ def update_habit_occurrence_status(occurrence_id):
 
         old_status = occurrence.status
         occurrence.status = new_status.upper()
+        
+        energy_log_reason = None
+        log_energy_value = None
+        points_to_change = 0
 
         if occurrence.status == 'COMPLETED':
             occurrence.actual_completion_datetime = datetime.now(timezone.utc)
-            # Log energy if it wasn't completed before
-            if old_status != 'COMPLETED':
-                energy_log_entry = EnergyLog(
-                    user_id=current_user.id,
-                    source_entity_type='HABIT_OCCURRENCE',
-                    source_entity_id=occurrence.id,
-                    energy_value=occurrence.energy_value,
-                    reason_text=f"Completed Habit: {occurrence.title}"
-                )
-                db.session.add(energy_log_entry)
-                # User points update will be in Task 8
-        elif old_status == 'COMPLETED' and occurrence.status != 'COMPLETED': # Undoing completion
-             occurrence.actual_completion_datetime = None
-             # Placeholder: Potentially remove or negate energy log entry (complex, for later if needed)
-             current_app.logger.info(f"Habit occurrence {occurrence.id} status changed from COMPLETED. Energy log might need adjustment (not implemented).")
+            if old_status != 'COMPLETED': # Solo dar puntos/energía si no estaba ya completado
+                points_to_change = occurrence.points_value
+                energy_log_reason = f"Completed Habit: {occurrence.title}"
+                log_energy_value = occurrence.energy_value
+                current_app.logger.info(f"HabitOccurrence {occurrence.id} COMPLETED. Points: +{points_to_change}, Energy: {log_energy_value}")
+        elif old_status == 'COMPLETED' and (occurrence.status == 'PENDING' or occurrence.status == 'SKIPPED'): # Reversión
+            occurrence.actual_completion_datetime = None
+            points_to_change = -occurrence.points_value
+            energy_log_reason = f"Reverted Habit Occurrence completion: {occurrence.title}"
+            log_energy_value = -occurrence.energy_value # Negar la energía
+            current_app.logger.info(f"HabitOccurrence {occurrence.id} REVERTED. Points: {points_to_change}, Energy: {log_energy_value}")
+        elif occurrence.status != 'COMPLETED': # Si se marca como PENDING o SKIPPED y no era COMPLETED antes, limpiar fecha de completado
+            occurrence.actual_completion_datetime = None
+            # No hay cambio de puntos/energía si no se está revirtiendo una completitud
 
-
+        if points_to_change != 0:
+            current_user.total_points += points_to_change
+        
+        if energy_log_reason and log_energy_value is not None:
+            energy_log_entry = EnergyLog(
+                user_id=current_user.id,
+                source_entity_type='HABIT_OCCURRENCE',
+                source_entity_id=occurrence.id,
+                energy_value=log_energy_value,
+                reason_text=energy_log_reason
+            )
+            db.session.add(energy_log_entry)
+        
+        # Aquí llamaremos a la función para recalcular nivel más adelante (Subtask 8.5)
+        # update_user_level(current_user)
+            
         db.session.commit()
         quest_name_val = occurrence.quest.name if occurrence.quest else None
         return jsonify({
             "id": str(occurrence.id),
+            # ... (otros campos de la ocurrencia) ...
             "habit_template_id": str(occurrence.habit_template_id),
-            "title": occurrence.title,
-            "description": occurrence.description,
-            "energy_value": occurrence.energy_value,
-            "points_value": occurrence.points_value,
+            "title": occurrence.title, "description": occurrence.description,
+            "energy_value": occurrence.energy_value, "points_value": occurrence.points_value,
             "scheduled_start_datetime": occurrence.scheduled_start_datetime.isoformat(),
             "scheduled_end_datetime": occurrence.scheduled_end_datetime.isoformat(),
             "status": occurrence.status,
             "actual_completion_datetime": occurrence.actual_completion_datetime.isoformat() if occurrence.actual_completion_datetime else None,
             "quest_id": str(occurrence.quest_id) if occurrence.quest_id else None,
             "quest_name": quest_name_val,
+            "user_total_points": current_user.total_points, # Devolver puntos actualizados
+            "user_level": current_user.level,             # Devolver nivel (se actualizará en 8.5)
             "updated_at": occurrence.updated_at.isoformat()
         }), 200
     except Exception as e:

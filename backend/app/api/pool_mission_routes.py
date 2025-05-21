@@ -160,33 +160,34 @@ def create_pool_mission():
 @token_required
 def update_pool_mission(mission_id):
     data = request.get_json()
-    current_user = g.current_user
+    current_user = g.current_user # type: User
 
     mission_to_update = PoolMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
     if not mission_to_update:
         return jsonify({"error": "Pool Mission not found or access denied"}), 404
 
-    # Validar solo los campos que se están enviando
     errors = validate_pool_mission_data(data, is_update=True) 
     if errors:
         return jsonify({"errors": errors}), 400
 
     try:
-        # Actualizar campos básicos si están presentes en el payload
+        old_status = mission_to_update.status
+        new_status = data.get('status', old_status) # Mantener status si no se provee
+
+        # Actualizar campos básicos
         if 'title' in data: mission_to_update.title = data['title'].strip()
-        if 'description' in data: mission_to_update.description = data['description'].strip() if data.get('description') else None # Permite borrar descripción
+        if 'description' in data: mission_to_update.description = data['description'].strip() if data.get('description') else None
         if 'energy_value' in data: mission_to_update.energy_value = data['energy_value']
         if 'points_value' in data: mission_to_update.points_value = data['points_value']
-        if 'status' in data: mission_to_update.status = data['status']
+        # No actualizar status aquí directamente, se maneja abajo con la lógica de energía/puntos
         if 'focus_status' in data: mission_to_update.focus_status = data['focus_status']
         
-        final_assigned_quest_object = None # Para la respuesta; inicializar con la quest actual
-        if mission_to_update.quest_id:
-            final_assigned_quest_object = Quest.query.get(mission_to_update.quest_id)
+        final_assigned_quest_object = Quest.query.get(mission_to_update.quest_id) if mission_to_update.quest_id else None
 
         if 'quest_id' in data:
-            quest_id_str = data.get('quest_id') # Puede ser string UUID, "", o None
-            if quest_id_str: # Usuario seleccionó una quest específica
+            # ... (lógica de asignación de quest_id como antes) ...
+            quest_id_str = data.get('quest_id') 
+            if quest_id_str: 
                 try:
                     quest_uuid_to_assign = uuid.UUID(quest_id_str)
                     quest_to_assign = Quest.query.filter_by(id=quest_uuid_to_assign, user_id=current_user.id).first()
@@ -196,7 +197,7 @@ def update_pool_mission(mission_id):
                     final_assigned_quest_object = quest_to_assign
                 except ValueError:
                      return jsonify({"error": "Invalid Quest ID format for update."}), 400
-            else: # Usuario envió "" o null para quest_id, asignar a la "General"
+            else: 
                 default_quest = Quest.query.filter_by(user_id=current_user.id, is_default_quest=True).first()
                 if not default_quest: 
                     current_app.logger.error(f"CRITICAL: User {current_user.id} missing default Quest during mission update.")
@@ -205,6 +206,7 @@ def update_pool_mission(mission_id):
                 final_assigned_quest_object = default_quest
         
         if 'tag_ids' in data:
+            # ... (lógica de asignación de tags como antes) ...
             tag_ids_str_list = data.get('tag_ids', [])
             valid_tag_uuids = []
             for tid_str in tag_ids_str_list:
@@ -212,18 +214,46 @@ def update_pool_mission(mission_id):
                     valid_tag_uuids.append(uuid.UUID(tid_str))
                 except ValueError:
                     current_app.logger.warning(f"Invalid UUID format for tag_id '{tid_str}' during PoolMission update for user {current_user.id}.")
-                    pass # Ignorar o manejar
+                    pass 
 
             if valid_tag_uuids:
                 tags_to_associate = Tag.query.filter(Tag.id.in_(valid_tag_uuids), Tag.user_id == current_user.id).all()
                 mission_to_update.tags = tags_to_associate
-            else: # Si la lista está vacía o todos los IDs son inválidos
+            else: 
                 mission_to_update.tags = []
+
+        # Lógica de Puntos y Energía al cambiar Status
+        if 'status' in data and new_status != old_status:
+            mission_to_update.status = new_status # Aplicar el nuevo estado
+            if new_status == 'COMPLETED':
+                current_user.total_points += mission_to_update.points_value
+                energy_log_reason = f"Completed Pool Mission: {mission_to_update.title}"
+                log_energy_value = mission_to_update.energy_value
+                current_app.logger.info(f"PoolMission {mission_to_update.id} COMPLETED. Points: +{mission_to_update.points_value}, Energy: {log_energy_value}")
+            elif old_status == 'COMPLETED' and new_status == 'PENDING': # Reversión
+                current_user.total_points -= mission_to_update.points_value
+                energy_log_reason = f"Reverted Pool Mission completion: {mission_to_update.title}"
+                log_energy_value = -mission_to_update.energy_value # Negar la energía
+                current_app.logger.info(f"PoolMission {mission_to_update.id} REVERTED. Points: -{mission_to_update.points_value}, Energy: {log_energy_value}")
+            else: # Otros cambios de estado (ej. PENDING a PENDING, o DEFERRED a PENDING) no afectan puntos/energía aquí
+                energy_log_reason = None
+                log_energy_value = None
+
+            if energy_log_reason and log_energy_value is not None:
+                energy_log_entry = EnergyLog(
+                    user_id=current_user.id,
+                    source_entity_type='POOL_MISSION',
+                    source_entity_id=mission_to_update.id,
+                    energy_value=log_energy_value,
+                    reason_text=energy_log_reason
+                )
+                db.session.add(energy_log_entry)
         
+        # Aquí llamaremos a la función para recalcular nivel más adelante (Subtask 8.5)
+        # Por ejemplo: update_user_level(current_user)
+
         db.session.commit()
         
-        # Recargar tags para la respuesta (SQLAlchemy podría necesitar esto si la sesión es compleja)
-        # O simplemente construir desde mission_to_update.tags si la sesión ya está actualizada.
         final_mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission_to_update.tags]
 
         return jsonify({
@@ -237,6 +267,8 @@ def update_pool_mission(mission_id):
             "quest_id": str(mission_to_update.quest_id) if mission_to_update.quest_id else None,
             "quest_name": final_assigned_quest_object.name if final_assigned_quest_object else None,
             "tags": final_mission_tags_data,
+            "user_total_points": current_user.total_points, # Devolver puntos actualizados
+            "user_level": current_user.level,             # Devolver nivel (se actualizará en 8.5)
             "updated_at": mission_to_update.updated_at.isoformat()
         }), 200
 
@@ -245,8 +277,6 @@ def update_pool_mission(mission_id):
         current_app.logger.error(f"Error updating pool mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update pool mission: " + str(e)}), 500
 
-# --- El resto de los endpoints (GET all, GET one, DELETE, PATCH focus) pueden permanecer como estaban en la respuesta anterior ---
-# --- Asegúrate de que GET all (get_pool_missions) también devuelva quest_name ---
 
 @pool_mission_bp.route('', methods=['GET'])
 @token_required

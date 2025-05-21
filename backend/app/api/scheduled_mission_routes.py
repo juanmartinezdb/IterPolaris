@@ -417,7 +417,7 @@ def delete_scheduled_mission(mission_id):
 @token_required
 def update_scheduled_mission_status(mission_id):
     data = request.get_json()
-    current_user = g.current_user
+    current_user = g.current_user # type: User
     new_status = data.get('status')
 
     if not new_status or new_status.upper() not in ['PENDING', 'COMPLETED', 'SKIPPED']:
@@ -431,16 +431,36 @@ def update_scheduled_mission_status(mission_id):
         old_status = mission.status
         mission.status = new_status.upper()
         
+        energy_log_reason = None
+        log_energy_value = None
+        points_to_change = 0
+
         if mission.status == 'COMPLETED' and old_status != 'COMPLETED':
-            current_app.logger.info(f"ScheduledMission {mission_id} PATCH completed. Logging energy/points (placeholder).")
+            points_to_change = mission.points_value
+            energy_log_reason = f"Completed Scheduled Mission: {mission.title}"
+            log_energy_value = mission.energy_value
+            current_app.logger.info(f"ScheduledMission {mission.id} COMPLETED via PATCH. Points: +{points_to_change}, Energy: {log_energy_value}")
+        elif old_status == 'COMPLETED' and (mission.status == 'PENDING' or mission.status == 'SKIPPED'): # Reversión
+            points_to_change = -mission.points_value
+            energy_log_reason = f"Reverted Scheduled Mission completion: {mission.title}"
+            log_energy_value = -mission.energy_value
+            current_app.logger.info(f"ScheduledMission {mission.id} REVERTED via PATCH. Points: {points_to_change}, Energy: {log_energy_value}")
+
+        if points_to_change != 0:
+            current_user.total_points += points_to_change
+
+        if energy_log_reason and log_energy_value is not None:
             energy_log_entry = EnergyLog(
                 user_id=current_user.id,
-                source_entity_type='SCHEDULED_MISSION', 
+                source_entity_type='SCHEDULED_MISSION',
                 source_entity_id=mission.id,
-                energy_value=mission.energy_value, 
-                reason_text=f"Completed Scheduled Mission: {mission.title}"
+                energy_value=log_energy_value,
+                reason_text=energy_log_reason
             )
             db.session.add(energy_log_entry)
+        
+        # Aquí llamaremos a la función para recalcular nivel más adelante (Subtask 8.5)
+        # update_user_level(current_user)
 
         db.session.commit()
 
@@ -449,16 +469,16 @@ def update_scheduled_mission_status(mission_id):
 
         return jsonify({
             "id": str(mission.id),
-            "title": mission.title,
-            "description": mission.description,
-            "energy_value": mission.energy_value,
-            "points_value": mission.points_value,
-            "start_datetime": mission.start_datetime.isoformat(),
-            "end_datetime": mission.end_datetime.isoformat(),
+            # ... (otros campos como antes) ...
+            "title": mission.title, "description": mission.description,
+            "energy_value": mission.energy_value, "points_value": mission.points_value,
+            "start_datetime": mission.start_datetime.isoformat(), "end_datetime": mission.end_datetime.isoformat(),
             "status": mission.status,
             "quest_id": str(mission.quest_id) if mission.quest_id else None,
             "quest_name": quest_name_val,
             "tags": mission_tags_data,
+            "user_total_points": current_user.total_points, # Devolver puntos actualizados
+            "user_level": current_user.level,             # Devolver nivel (se actualizará en 8.5)
             "updated_at": mission.updated_at.isoformat()
         }), 200
     except Exception as e:
