@@ -1,0 +1,246 @@
+/* frontend/src/styles/habittemplates.css */
+
+.habit-templates-page-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: var(--color-bg-content-area, #172A45);
+    border-radius: var(--border-radius-standard, 8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.habit-templates-page-container h2,
+.habit-templates-page-container h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Form Styles */
+.habit-template-form-container {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1.5rem; /* Reducido un poco de 2rem */
+    border-radius: var(--border-radius-standard, 8px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    margin-bottom: 2rem;
+}
+
+.habit-template-form-container h3 {
+    margin-top: 0;
+    font-size: 1.5em; /* Ligeramente más pequeño que el H2 de la página */
+}
+
+.habit-template-form .form-fieldset {
+    border: 1px solid var(--color-accent-gold-hover, #c9a36a);
+    border-radius: var(--border-radius-input, 4px);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+.habit-template-form .form-fieldset legend {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    padding: 0 0.5rem;
+    font-weight: bold;
+}
+
+.habit-template-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.habit-template-form .form-group-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.habit-template-form .form-group-row .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.habit-template-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.habit-template-form input[type="text"],
+.habit-template-form input[type="number"],
+.habit-template-form input[type="time"],
+.habit-template-form input[type="date"],
+.habit-template-form textarea,
+.habit-template-form select {
+    width: 100%;
+    padding: 0.6rem; /* Ligeramente menos padding */
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 0.95em;
+}
+
+.habit-template-form input:focus,
+.habit-template-form textarea:focus,
+.habit-template-form select:focus {
+    outline: none;
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.3);
+}
+
+.habit-template-form textarea {
+    min-height: 60px; /* Más corto */
+    resize: vertical;
+}
+
+.habit-template-form .checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem; /* Espacio entre checkboxes */
+}
+.habit-template-form .checkbox-label {
+    display: flex;
+    align-items: center;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-size: 0.9em;
+    margin-bottom: 0.25rem; /* Menos margen inferior para labels de checkbox */
+    font-weight: normal; /* No negrita para estos labels */
+}
+.habit-template-form .checkbox-label input[type="checkbox"] {
+    margin-right: 0.5rem;
+    width: auto; /* Permitir que el checkbox tome su tamaño natural */
+    cursor: pointer;
+}
+
+
+.habit-template-form .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.habit-template-form .form-actions button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    padding: 0.7rem 1.4rem; /* Ajustar padding si es necesario */
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+}
+.habit-template-form .form-actions .submit-btn {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border: none;
+}
+.habit-template-form .form-actions .submit-btn:hover {
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+}
+.habit-template-form .form-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+}
+.habit-template-form .form-actions .cancel-btn:hover {
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+.habit-template-form .error-message {
+    color: var(--color-error, #FF6B6B);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    text-align: left;
+}
+
+/* Botón para añadir nuevo template */
+.add-habit-template-button {
+    display: block;
+    margin: 0 auto 2rem auto;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-primary, 'Merriweather', serif);
+    background-color: var(--color-accent-secondary, #50C878); 
+    color: var(--color-bg-deep-blue, #0A192F);
+    border: none;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+.add-habit-template-button:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
+/* List and Item Styles (placeholder, to be detailed when components are created) */
+.habit-template-list {
+    list-style: none;
+    padding: 0;
+}
+.habit-template-item {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius-input, 4px);
+    border-left: 5px solid; /* Color based on Quest */
+     /* Add more styles for item layout */
+}
+.habit-template-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.habit-template-title {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    font-size: 1.15em;
+    font-weight: bold;
+    color: var(--color-text-on-dark, #EAEAEA);
+}
+.habit-template-status-badge {
+    font-size: 0.7em;
+    padding: 0.2em 0.5em;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+.habit-template-status-badge.active {
+    background-color: var(--color-success);
+    color: var(--color-text-on-accent);
+}
+.habit-template-status-badge.inactive {
+    background-color: var(--color-text-on-dark-muted);
+    color: var(--color-bg-deep-blue);
+}
+.habit-template-details, .habit-template-recurrence, .habit-template-meta {
+    font-size: 0.85em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-bottom: 0.3rem;
+}
+.habit-template-actions {
+    margin-top: 0.75rem;
+    text-align: right;
+}
+.habit-template-actions button {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    background-color: transparent;
+    color: var(--color-accent-gold, #B08D57);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    padding: 0.4rem 0.8rem;
+    margin-left: 0.5rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-size: 0.85em;
+}
+.habit-template-actions button:hover {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+}
+.habit-template-actions button.delete-btn:hover {
+    background-color: var(--color-error, #FF6B6B);
+    border-color: var(--color-error, #FF6B6B);
+    color: white;
+}

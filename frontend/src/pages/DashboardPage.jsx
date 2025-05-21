@@ -2,6 +2,7 @@
 import React from 'react'; // , { useState } // useState para filtros de tags globales si se manejan aquí
 import { Link } from 'react-router-dom';
 import MissionPoolPanel from '../components/dashboard/MissionPoolPanel';
+import TodaysHabitsPanel from '../components/dashboard/TodaysHabitsPanel'; 
 // Importar otros paneles del dashboard cuando se creen (Tarea 9)
 // import UpcomingMissionsPanel from '../components/dashboard/UpcomingMissionsPanel';
 // import TodaysHabitsPanel from '../components/dashboard/TodaysHabitsPanel';
@@ -9,6 +10,7 @@ import MissionPoolPanel from '../components/dashboard/MissionPoolPanel';
 // Importar estilos globales de App.css o index.css si son necesarios aquí,
 // o un dashboard.css específico. Por ahora, usamos page-container de App.css
 import '../App.css'; // Para .page-container
+import '../styles/dashboard.css'; // Crear este archivo para estilos del dashboard
 
 function DashboardPage() {
     const userString = localStorage.getItem('currentUser');
@@ -19,26 +21,23 @@ function DashboardPage() {
     // const [activeTagFilters, setActiveTagFilters] = useState([]);
 
     return (
-        <div className="page-container" style={{maxWidth: '1200px', margin: '0 auto'}}>
+        <div className="page-container dashboard-page" style={{maxWidth: '1200px', margin: '0 auto'}}>
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
                 <h2>Dashboard</h2>
-                {/* TODO Tarea 9: Botón "Add New" global podría ir aquí o en el layout general */}
+                {/* TODO Tarea 9: Botón "Add New" global */}
             </div>
             <p style={{marginBottom: '2rem'}}>Welcome back, {user.name}! Ready for your next Quest?</p>
             
-            <div className="dashboard-grid"> {/* Para organizar paneles en Tarea 9 */}
-                {/* <div className="dashboard-column">
-                    <UpcomingMissionsPanel activeTagFilters={activeTagFilters} />
-                    <TodaysHabitsPanel activeTagFilters={activeTagFilters} />
+            <div className="dashboard-grid"> 
+                <div className="dashboard-column main-column"> {/* Columna principal */}
+                    {/* <UpcomingMissionsPanel activeTagFilters={activeTagFilters} /> */}
+                    <TodaysHabitsPanel /* activeTagFilters={activeTagFilters} */ />
                 </div>
-                <div className="dashboard-column">
-                */}
+                <div className="dashboard-column sidebar-column"> {/* Columna lateral */}
                     <MissionPoolPanel 
-                        // activeTagFilters={activeTagFilters} // Se pasará en Tarea 9 cuando el filtro global esté listo
+                        /* activeTagFilters={activeTagFilters} */
                     />
-                {/*
                 </div>
-                */}
             </div>
 
             {/* Enlaces de navegación rápida (pueden eliminarse si están en la sidebar) */}

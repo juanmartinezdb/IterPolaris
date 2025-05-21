@@ -1,0 +1,338 @@
+/* frontend/src/styles/scheduledmissions.css */
+
+/* General container for a page listing scheduled missions */
+.scheduled-missions-page-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: var(--color-bg-content-area, #172A45);
+    border-radius: var(--border-radius-standard, 8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.scheduled-missions-page-container h2,
+.scheduled-missions-page-container h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Form container and elements */
+.scheduled-mission-form-container {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 2rem;
+    border-radius: var(--border-radius-standard, 8px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    margin-bottom: 2rem;
+}
+
+.scheduled-mission-form-container h3 {
+    margin-top: 0;
+}
+
+.scheduled-mission-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.scheduled-mission-form .form-group-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.scheduled-mission-form .form-group-row .form-group {
+    flex: 1;
+    margin-bottom: 0; /* Remove bottom margin from individual groups in a row */
+}
+
+
+.scheduled-mission-form label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+}
+
+.scheduled-mission-form input[type="text"],
+.scheduled-mission-form input[type="number"],
+.scheduled-mission-form input[type="datetime-local"],
+.scheduled-mission-form textarea,
+.scheduled-mission-form select {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 1em;
+}
+
+.scheduled-mission-form input:focus,
+.scheduled-mission-form textarea:focus,
+.scheduled-mission-form select:focus {
+    outline: none;
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.5);
+}
+
+.scheduled-mission-form textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.scheduled-mission-form .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.scheduled-mission-form .form-actions button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.scheduled-mission-form .form-actions .submit-btn {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border: none;
+}
+.scheduled-mission-form .form-actions .submit-btn:hover {
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+}
+
+.scheduled-mission-form .form-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+}
+.scheduled-mission-form .form-actions .cancel-btn:hover {
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+
+.scheduled-mission-form .error-message { /* Ensure consistent error message styling */
+    color: var(--color-error, #FF6B6B);
+    font-size: 0.9em;
+    margin-bottom: 10px;
+    text-align: left; /* Or center, depending on placement */
+}
+
+
+/* Styles for ScheduledMissionList and ScheduledMissionItem will go here */
+.scheduled-mission-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.scheduled-mission-item {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1rem 1.2rem;
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius-input, 4px);
+    border-left: 5px solid; /* Color applied inline via Quest.color */
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+
+.scheduled-mission-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.scheduled-mission-item.status-COMPLETED {
+    opacity: 0.7;
+}
+.scheduled-mission-item.status-COMPLETED .scheduled-mission-title {
+    text-decoration: line-through;
+    color: var(--color-text-on-dark-muted, #8892b0);
+}
+.scheduled-mission-item.status-SKIPPED {
+    opacity: 0.5;
+    background-color: #2a3b50; /* Slightly different background for skipped */
+}
+.scheduled-mission-item.status-SKIPPED .scheduled-mission-title {
+    text-decoration: line-through;
+    font-style: italic;
+    color: var(--color-text-on-dark-muted, #8892b0);
+}
+
+
+.scheduled-mission-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.scheduled-mission-title {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    font-size: 1.15em;
+    font-weight: bold;
+    color: var(--color-text-on-dark, #EAEAEA);
+    margin: 0;
+    flex-grow: 1;
+}
+
+.scheduled-mission-datetime {
+    font-size: 0.85em;
+    color: var(--color-accent-gold, #B08D57);
+    margin-left: 1rem;
+    text-align: right;
+}
+.scheduled-mission-datetime .label {
+    font-weight: bold;
+    color: var(--color-text-on-dark-muted, #8892b0);
+}
+
+
+.scheduled-mission-details p {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 0.9em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin: 0.25rem 0;
+    white-space: pre-wrap;
+}
+
+.scheduled-mission-meta {
+    font-size: 0.8em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-bottom: 0.5rem;
+}
+.scheduled-mission-meta .quest-name-badge {
+    display: inline-block;
+    padding: 0.2em 0.5em;
+    background-color: var(--color-bg-deep-blue);
+    border: 1px solid; /* Color applied inline */
+    border-radius: 3px;
+    margin-right: 0.5em;
+    font-weight: bold;
+}
+
+.scheduled-mission-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
+.scheduled-mission-tag-badge {
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75em;
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+}
+
+.scheduled-mission-status-badge {
+    font-size: 0.75em;
+    padding: 0.2em 0.6em;
+    border-radius: 10px;
+    color: var(--color-bg-deep-blue, #0A192F);
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-left: auto; /* Pushes to the right if in a flex container */
+}
+.scheduled-mission-status-badge.PENDING { background-color: var(--color-warning, #FFD700); }
+.scheduled-mission-status-badge.COMPLETED { background-color: var(--color-success, #50C878); }
+.scheduled-mission-status-badge.SKIPPED { background-color: var(--color-text-on-dark-muted, #8892b0); }
+
+
+.scheduled-mission-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.scheduled-mission-actions button, .scheduled-mission-actions .action-icon {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    background-color: transparent;
+    color: var(--color-accent-gold, #B08D57);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+    font-size: 0.85em;
+}
+.scheduled-mission-actions button:hover, .scheduled-mission-actions .action-icon:hover {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+}
+.scheduled-mission-actions button.complete-btn:hover {
+    background-color: var(--color-accent-secondary, #50C878);
+    border-color: var(--color-accent-secondary, #50C878);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+.scheduled-mission-actions button.skip-btn:hover {
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    border-color: var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-bg-deep-blue, #0A192F);
+}
+.scheduled-mission-actions button.delete-btn:hover {
+    background-color: var(--color-error, #FF6B6B);
+    border-color: var(--color-error, #FF6B6B);
+    color: white;
+}
+
+.add-scheduled-mission-button {
+    display: block;
+    margin: 0 auto 2rem auto;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-primary, 'Merriweather', serif);
+    background-color: var(--color-accent-secondary, #50C878); 
+    color: var(--color-bg-deep-blue, #0A192F);
+    border: none;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+.add-scheduled-mission-button:hover {
+    opacity: 0.9;
+    transform: scale(1.02);
+}
+
+/* Filters for Scheduled Missions page */
+.scheduled-missions-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 1rem;
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--border-radius-standard);
+}
+.scheduled-missions-filters .filter-group {
+    display: flex;
+    flex-direction: column;
+}
+.scheduled-missions-filters label {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-size: 0.85em;
+    margin-bottom: 0.3rem;
+}
+.scheduled-missions-filters select,
+.scheduled-missions-filters input[type="date"],
+.scheduled-missions-filters input[type="text"] {
+    padding: 0.6rem;
+    border-radius: var(--border-radius-input, 4px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    min-width: 150px;
+}

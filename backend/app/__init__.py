@@ -60,7 +60,15 @@ def create_app(config_class=None):
 
     from .api.pool_mission_routes import pool_mission_bp 
     app.register_blueprint(pool_mission_bp)
+    
+    from .api.scheduled_mission_routes import scheduled_mission_bp
+    app.register_blueprint(scheduled_mission_bp)
 
+    from .api.habit_template_routes import habit_template_bp
+    app.register_blueprint(habit_template_bp)
+
+    from .api.habit_occurrence_routes import habit_occurrence_bp
+    app.register_blueprint(habit_occurrence_bp)
     
     @app.route('/')
     def hello():

@@ -1,0 +1,49 @@
+/* frontend/src/styles/dashboard.css */
+.dashboard-page h2 {
+    margin-bottom: 0.5rem; /* Ajuste si es necesario */
+}
+.dashboard-page > p { /* El "Welcome back..." */
+    font-size: 1.1em;
+    color: var(--color-text-on-dark-muted);
+}
+
+.dashboard-grid {
+    display: flex;
+    flex-wrap: wrap; /* Para responsividad si las columnas no caben */
+    gap: 1.5rem; /* Espacio entre columnas/paneles */
+    margin-top: 1.5rem;
+}
+
+.dashboard-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Espacio entre paneles dentro de una columna */
+}
+
+.dashboard-column.main-column {
+    flex: 2; /* Que la columna principal ocupe más espacio */
+    min-width: 300px; /* Mínimo para que no se colapse demasiado */
+}
+.dashboard-column.sidebar-column {
+    flex: 1;
+    min-width: 280px;
+}
+
+
+.dashboard-panel {
+    background-color: var(--color-bg-content-area, #172A45); /* Ligeramente diferente al fondo general de la página */
+    padding: 1rem 1.5rem;
+    border-radius: var(--border-radius-standard, 8px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    border-top: 3px solid var(--color-accent-gold); /* Un borde temático */
+}
+
+.dashboard-panel h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    margin-top: 0;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover, #c9a36a);
+    font-size: 1.3em;
+}

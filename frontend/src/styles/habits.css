@@ -1,0 +1,130 @@
+/* frontend/src/styles/habits.css */
+/* (Añadir a los estilos de habittemplates.css o crear nuevo) */
+
+.habit-occurrence-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.habit-occurrence-item {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: var(--border-radius-input, 4px);
+    border-left: 4px solid; /* Color basado en Quest */
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+}
+
+.habit-occurrence-item:hover {
+    /* background-color: #2a4063; */
+}
+
+.habit-occurrence-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.habit-occurrence-info {
+    flex-grow: 1;
+}
+
+.habit-occurrence-time {
+    font-size: 0.8em;
+    color: var(--color-accent-gold, #B08D57);
+    display: block;
+    margin-bottom: 0.2rem;
+}
+.habit-occurrence-duration {
+    color: var(--color-text-on-dark-muted);
+    font-style: italic;
+}
+
+.habit-occurrence-title {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    font-size: 1em;
+    font-weight: bold;
+    color: var(--color-text-on-dark, #EAEAEA);
+    margin: 0 0 0.25rem 0;
+    word-break: break-word;
+}
+
+.quest-name-badge-sm { /* Badge más pequeño para las ocurrencias */
+    display: inline-block;
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.7em;
+    font-weight: bold;
+    margin-top: 0.25rem;
+}
+
+
+.habit-occurrence-description {
+    font-size: 0.8em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin: 0.3rem 0;
+    font-style: italic;
+}
+
+.habit-occurrence-meta {
+    font-size: 0.75em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-top: 0.4rem;
+}
+
+.habit-occurrence-actions {
+    display: flex;
+    gap: 0.3rem; /* Espacio pequeño entre botones de estado */
+}
+
+.habit-occurrence-actions .status-btn {
+    background-color: transparent;
+    border: 1px solid var(--color-text-on-dark-muted, #8892b0);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border-radius: 50%; /* Círculo */
+    width: 28px;
+    height: 28px;
+    font-size: 0.9em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.habit-occurrence-actions .status-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.habit-occurrence-actions .status-btn.complete:hover:not(:disabled) {
+    border-color: var(--color-success, #50C878);
+    color: var(--color-success, #50C878);
+}
+.habit-occurrence-actions .status-btn.complete.active {
+    background-color: var(--color-success, #50C878);
+    border-color: var(--color-success, #50C878);
+    color: var(--color-text-on-accent, #0A192F);
+}
+
+.habit-occurrence-actions .status-btn.skip:hover:not(:disabled) {
+    border-color: var(--color-error, #FF6B6B);
+    color: var(--color-error, #FF6B6B);
+}
+.habit-occurrence-actions .status-btn.skip.active {
+    background-color: var(--color-error, #FF6B6B);
+    border-color: var(--color-error, #FF6B6B);
+    color: white;
+}
+
+
+/* Estilos para el panel de Today's Habits en el Dashboard */
+.todays-habits-panel .empty-state-message {
+    text-align: center;
+    font-style: italic;
+    color: var(--color-text-on-dark-muted);
+    padding: 1rem 0;
+}

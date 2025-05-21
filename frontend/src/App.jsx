@@ -10,7 +10,9 @@ import ProtectedRoute from './components/routing/ProtectedRoute';
 
 import QuestPage from './pages/QuestPage';
 import TagsPage from './pages/TagsPage';
-import DashboardPage from './pages/DashboardPage'; // Importar la nueva página Dashboard
+import DashboardPage from './pages/DashboardPage';
+import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
+import HabitTemplatesPage from './pages/HabitTemplatesPage';
 
 import './App.css';
 import './index.css'; // Asegurarse que las variables globales de CSS estén disponibles
@@ -25,14 +27,14 @@ function HomePage() { // Esta podría ser la página de bienvenida o redirigir a
             <h1>Welcome to Iter Polaris!</h1>
             <p>Your personal gamified agenda awaits your command.</p>
             {!isAuthenticated && (
-                <div style={{marginTop: '2rem'}}>
-                    <Link to="/login" className="auth-button" style={{marginRight: '1rem', textDecoration:'none'}}>Login</Link>
-                    <Link to="/register" className="auth-button" style={{textDecoration:'none'}}>Register</Link>
+                <div style={{ marginTop: '2rem' }}>
+                    <Link to="/login" className="auth-button" style={{ marginRight: '1rem', textDecoration: 'none' }}>Login</Link>
+                    <Link to="/register" className="auth-button" style={{ textDecoration: 'none' }}>Register</Link>
                 </div>
             )}
             {isAuthenticated && (
-                 <div style={{marginTop: '2rem'}}>
-                    <Link to="/dashboard" className="auth-button" style={{textDecoration:'none'}}>Go to Dashboard</Link>
+                <div style={{ marginTop: '2rem' }}>
+                    <Link to="/dashboard" className="auth-button" style={{ textDecoration: 'none' }}>Go to Dashboard</Link>
                 </div>
             )}
         </div>
@@ -92,7 +94,7 @@ function App() {
             navigate('/login');
         }
     };
-    
+
     // Placeholder para los filtros de tags globales (se manejará en Tarea 9)
     // const [activeTagFilters, setActiveTagFilters] = useState([]);
     // const handleTagFilterChange = (tagId) => { /* ... lógica para añadir/quitar tagId ... */ }
@@ -100,7 +102,7 @@ function App() {
     return (
         <div className="app-container">
             <nav className="main-nav">
-                <Link to="/" className="nav-link" style={{fontSize: '1.5em', fontWeight: 'bold'}}>Iter Polaris</Link>
+                <Link to="/" className="nav-link" style={{ fontSize: '1.5em', fontWeight: 'bold' }}>Iter Polaris</Link>
                 <div className="nav-links-group">
                     {/* Tarea 9: Aquí iría el TagFilterSidebar si se decide ponerlo en el nav global
                         <TagFilterSidebar 
@@ -117,6 +119,8 @@ function App() {
                     ) : (
                         <>
                             <Link to="/dashboard" className="nav-link">Dashboard</Link>
+                            <Link to="/scheduled-missions" className="nav-link">Scheduled</Link>
+                            <Link to="/habit-templates" className="nav-link">Habits</Link>
                             <Link to="/quests" className="nav-link">My Quests</Link>
                             <Link to="/tags" className="nav-link">My Tags</Link>
                             {/* <Link to="/calendar" className="nav-link">Calendar</Link> */} {/* Tarea 6 */}
@@ -133,24 +137,17 @@ function App() {
                     <Route path="/register" element={<RegistrationForm onAuthSuccess={handleAuthSuccess} />} />
                     <Route path="/login" element={<LoginForm onAuthSuccess={handleAuthSuccess} />} />
                     <Route path="/dev-password-reset" element={<DevPasswordResetForm />} />
-                    
+
                     <Route element={<ProtectedRoute />}> {/* Wrapper para todas las rutas protegidas */}
-                        <Route 
-                            path="/dashboard"
-                            element={<DashboardPage  /*activeTagFilters={activeTagFilters}*/ /> } 
-                        />
-                        <Route 
-                            path="/quests"
-                            element={<QuestPage />} 
-                        />
-                        <Route 
-                            path="/tags"
-                            element={<TagsPage />} 
-                        />
+                        <Route path="/dashboard" element={<DashboardPage />} />
+                        <Route path="/scheduled-missions" element={<ScheduledMissionsPage />} />
+                        <Route path="/habit-templates" element={<HabitTemplatesPage />} />
+                        <Route path="/quests" element={<QuestPage />} />
+                        <Route path="/tags" element={<TagsPage />} />
                         {/* <Route path="/calendar" element={<CalendarPage />} /> */} {/* Tarea 6 */}
                         {/* <Route path="/settings" element={<SettingsPage />} /> */} {/* Tarea 9 */}
                     </Route>
-                    
+
                     <Route path="*" element={
                         <div className="page-container">
                             <h2>404 - Page Not Found</h2>
@@ -160,7 +157,7 @@ function App() {
                     } />
                 </Routes>
             </main>
-            
+
             <footer className="main-footer">
                 <p>&copy; {new Date().getFullYear()} Iter Polaris. Chart your course.</p>
             </footer>
