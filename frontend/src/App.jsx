@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // useCallback añadido
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
@@ -14,13 +14,17 @@ import DashboardPage from './pages/DashboardPage';
 import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
 import HabitTemplatesPage from './pages/HabitTemplatesPage';
 
+// Nuevos componentes de gamificación
+import EnergyBalanceBar from './components/gamification/EnergyBalanceBar';
+import UserStatsDisplay from './components/gamification/UserStatsDisplay';
+
 import './App.css';
-import './index.css'; // Asegurarse que las variables globales de CSS estén disponibles
+import './index.css';
+import './styles/gamification.css'; // Importar los nuevos estilos
 
-// API_AUTH_URL puede moverse a un archivo de constantes o configuración si se usa en múltiples lugares
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; // http://localhost:5000/api
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-function HomePage() { // Esta podría ser la página de bienvenida o redirigir al dashboard si está logueado
+function HomePage() {
     const isAuthenticated = !!localStorage.getItem('authToken');
     return (
         <div className="page-container">
@@ -41,122 +45,145 @@ function HomePage() { // Esta podría ser la página de bienvenida o redirigir a
     );
 }
 
-
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('authToken'));
-    const [currentUser, setCurrentUser] = useState(null); // Para nombre de usuario, etc.
+    const [currentUser, setCurrentUser] = useState(null);
+    const [reloadUserStats, setReloadUserStats] = useState(0); // Para forzar recarga de UserStatsDisplay
     const navigate = useNavigate();
     const location = useLocation();
 
-    useEffect(() => {
-        const token = localStorage.getItem('authToken');
+    const updateCurrentUserState = useCallback(() => {
         const userString = localStorage.getItem('currentUser');
-        setIsAuthenticated(!!token);
         if (userString) {
             try {
                 setCurrentUser(JSON.parse(userString));
             } catch (e) {
                 console.error("Error parsing currentUser from localStorage", e);
-                localStorage.removeItem('currentUser'); // limpiar si está corrupto
+                localStorage.removeItem('currentUser');
                 setCurrentUser(null);
             }
         } else {
             setCurrentUser(null);
         }
-    }, [location.pathname]); // Re-evaluar en cada cambio de ruta
+        setReloadUserStats(prev => prev + 1); // Trigger re-render of UserStatsDisplay
+    }, []);
+
+
+    useEffect(() => {
+        const token = localStorage.getItem('authToken');
+        setIsAuthenticated(!!token);
+        updateCurrentUserState();
+    }, [location.pathname, updateCurrentUserState]);
 
 
     const handleAuthSuccess = () => {
         setIsAuthenticated(true);
-        const userString = localStorage.getItem('currentUser');
-        if (userString) {
-            setCurrentUser(JSON.parse(userString));
-        }
-        // No es necesario navegar aquí, los formularios de Auth ya lo hacen
+        updateCurrentUserState(); // Actualiza el estado del usuario y fuerza la recarga de UserStats
+        // Navegación ya se maneja en los formularios de auth
     };
 
     const handleLogout = async () => {
         const token = localStorage.getItem('authToken');
         try {
-            if (token && API_BASE_URL) { // Asegurarse que API_BASE_URL está definido
+            if (token && API_BASE_URL) {
                 await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
             }
         } catch (error) {
             console.error('Logout API call failed:', error);
-            // Continuar con el logout del cliente de todas formas
         } finally {
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
             setIsAuthenticated(false);
             setCurrentUser(null);
+            setReloadUserStats(prev => prev + 1); // Actualizar UI
             navigate('/login');
         }
     };
-
-    // Placeholder para los filtros de tags globales (se manejará en Tarea 9)
-    // const [activeTagFilters, setActiveTagFilters] = useState([]);
-    // const handleTagFilterChange = (tagId) => { /* ... lógica para añadir/quitar tagId ... */ }
+    
+    // El PRD indica que el Left Sidebar tiene "User Avatar, User Name, User stats"
+    // y el Energy Balance Bar está debajo del Top Bar.
 
     return (
         <div className="app-container">
-            <nav className="main-nav">
-                <Link to="/" className="nav-link" style={{ fontSize: '1.5em', fontWeight: 'bold' }}>Iter Polaris</Link>
-                <div className="nav-links-group">
-                    {/* Tarea 9: Aquí iría el TagFilterSidebar si se decide ponerlo en el nav global
-                        <TagFilterSidebar 
-                            availableTags={allUserTags} 
-                            selectedTags={activeTagFilters} 
-                            onFilterChange={handleTagFilterChange} 
-                        /> 
-                    */}
-                    {!isAuthenticated ? (
-                        <>
-                            <Link to="/register" className="nav-link">Register</Link>
-                            <Link to="/login" className="nav-link">Login</Link>
-                        </>
-                    ) : (
-                        <>
-                            <Link to="/dashboard" className="nav-link">Dashboard</Link>
-                            <Link to="/scheduled-missions" className="nav-link">Scheduled</Link>
-                            <Link to="/habit-templates" className="nav-link">Habits</Link>
-                            <Link to="/quests" className="nav-link">My Quests</Link>
-                            <Link to="/tags" className="nav-link">My Tags</Link>
-                            {/* <Link to="/calendar" className="nav-link">Calendar</Link> */} {/* Tarea 6 */}
-                            {/* Tarea 9: Avatar Dropdown con Profile, Settings, Logout */}
-                            <button onClick={handleLogout} className="nav-button-logout">Logout ({currentUser?.name})</button>
-                        </>
-                    )}
+            <header className="main-header"> {/* Cambiado nav a header para más semántica */}
+                <div className="top-bar">
+                    <Link to="/" className="app-logo">Iter Polaris</Link>
+                    <nav className="main-navigation">
+                        {!isAuthenticated ? (
+                            <>
+                                <Link to="/register" className="nav-link">Register</Link>
+                                <Link to="/login" className="nav-link">Login</Link>
+                            </>
+                        ) : (
+                            <>
+                                {/* User Avatar Dropdown (Placeholder Tarea 9) */}
+                                {/* <div className="user-avatar-dropdown"> */}
+                                    {/* <img src={currentUser?.avatar_url || "/default-avatar.png"} alt="User"/> */}
+                                    <button onClick={handleLogout} className="nav-button-logout">
+                                        Logout ({currentUser?.name || 'User'})
+                                    </button>
+                                {/* </div> */}
+                            </>
+                        )}
+                    </nav>
                 </div>
-            </nav>
+                {isAuthenticated && <EnergyBalanceBar />}
+            </header>
 
-            <main className="main-content">
-                <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/register" element={<RegistrationForm onAuthSuccess={handleAuthSuccess} />} />
-                    <Route path="/login" element={<LoginForm onAuthSuccess={handleAuthSuccess} />} />
-                    <Route path="/dev-password-reset" element={<DevPasswordResetForm />} />
+            <div className="app-body"> {/* Nuevo contenedor para sidebar y contenido principal */}
+                {isAuthenticated && (
+                    <aside className="left-sidebar">
+                        <UserStatsDisplay key={reloadUserStats} /> {/* key para forzar re-render si es necesario */}
+                        <nav className="sidebar-navigation">
+                             <Link to="/dashboard" className="sidebar-nav-link">
+                                <span role="img" aria-label="Dashboard Icon">🗺️</span> Dashboard
+                            </Link>
+                            <Link to="/scheduled-missions" className="sidebar-nav-link">
+                                <span role="img" aria-label="Scheduled Icon">🗓️</span> Scheduled
+                            </Link>
+                            <Link to="/habit-templates" className="sidebar-nav-link">
+                                <span role="img" aria-label="Habits Icon">🔄</span> Habits
+                            </Link>
+                            <Link to="/quests" className="sidebar-nav-link">
+                                <span role="img" aria-label="Quests Icon">🏆</span> My Quests
+                            </Link>
+                            <Link to="/tags" className="sidebar-nav-link">
+                                <span role="img" aria-label="Tags Icon">🏷️</span> My Tags
+                            </Link>
+                            {/* TODO Tarea 9: "Add New" button */}
+                            {/* TODO Tarea 9: Tag Filters */}
+                        </nav>
+                    </aside>
+                )}
+                <main className={`main-content ${!isAuthenticated ? 'full-width' : ''}`}>
+                    <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/register" element={<RegistrationForm onAuthSuccess={handleAuthSuccess} />} />
+                        <Route path="/login" element={<LoginForm onAuthSuccess={handleAuthSuccess} />} />
+                        <Route path="/dev-password-reset" element={<DevPasswordResetForm />} />
 
-                    <Route element={<ProtectedRoute />}> {/* Wrapper para todas las rutas protegidas */}
-                        <Route path="/dashboard" element={<DashboardPage />} />
-                        <Route path="/scheduled-missions" element={<ScheduledMissionsPage />} />
-                        <Route path="/habit-templates" element={<HabitTemplatesPage />} />
-                        <Route path="/quests" element={<QuestPage />} />
-                        <Route path="/tags" element={<TagsPage />} />
-                        {/* <Route path="/calendar" element={<CalendarPage />} /> */} {/* Tarea 6 */}
-                        {/* <Route path="/settings" element={<SettingsPage />} /> */} {/* Tarea 9 */}
-                    </Route>
+                        <Route element={<ProtectedRoute />}>
+                            <Route path="/dashboard" element={<DashboardPage />} />
+                            <Route path="/scheduled-missions" element={<ScheduledMissionsPage />} />
+                            <Route path="/habit-templates" element={<HabitTemplatesPage />} />
+                            <Route path="/quests" element={<QuestPage />} />
+                            <Route path="/tags" element={<TagsPage />} />
+                            {/* <Route path="/calendar" element={<CalendarPage />} /> */}
+                            {/* <Route path="/settings" element={<SettingsPage />} /> */}
+                        </Route>
 
-                    <Route path="*" element={
-                        <div className="page-container">
-                            <h2>404 - Page Not Found</h2>
-                            <p>The page you are looking for does not exist.</p>
-                            <Link to="/" className="nav-link">Go to Homepage</Link>
-                        </div>
-                    } />
-                </Routes>
-            </main>
+                        <Route path="*" element={
+                            <div className="page-container">
+                                <h2>404 - Page Not Found</h2>
+                                <p>The page you are looking for does not exist.</p>
+                                <Link to="/" className="nav-link">Go to Homepage</Link>
+                            </div>
+                        } />
+                    </Routes>
+                </main>
+            </div> {/* Fin de app-body */}
 
             <footer className="main-footer">
                 <p>&copy; {new Date().getFullYear()} Iter Polaris. Chart your course.</p>

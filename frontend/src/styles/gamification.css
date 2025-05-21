@@ -1,0 +1,185 @@
+/* frontend/src/styles/gamification.css */
+
+/* Energy Balance Bar */
+.energy-balance-bar-container {
+    width: 100%;
+    padding: 8px 20px; /* Reducido el padding vertical */
+    background-color: var(--color-bg-content-area, #172A45); /* Fondo ligeramente diferente al principal */
+    border-bottom: 1px solid var(--color-accent-gold, #B08D57);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-size: 0.85em;
+    position: sticky; /* Para que quede fijo debajo del nav si es necesario */
+    top: 60px; /* Ajustar si la altura del nav es diferente */
+    z-index: 990; /* Debajo del nav principal (z-index: 999) */
+}
+
+.energy-balance-bar-container.loading,
+.energy-balance-bar-container.error {
+    text-align: center;
+    padding: 10px 20px;
+    font-style: italic;
+}
+.energy-balance-bar-container.error {
+    color: var(--color-warning);
+}
+
+
+.energy-balance-bar-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px; /* Reducido */
+    font-size: 0.9em; /* Ligeramente más pequeño */
+}
+.energy-balance-bar-label .zone-text {
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--color-bg-deep-blue); /* Texto oscuro para contraste en badges de color */
+}
+.energy-balance-bar-label .zone-text.RED { background-color: var(--color-error, #E74C3C); }
+.energy-balance-bar-label .zone-text.GREEN { background-color: var(--color-success, #2ECC71); }
+.energy-balance-bar-label .zone-text.YELLOW { background-color: var(--color-warning, #F1C40F); }
+
+
+.energy-bar-track {
+    width: 100%;
+    height: 12px; /* Más delgada */
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    border-radius: 6px;
+    overflow: hidden; /* Para que el fill no se salga */
+    position: relative; /* Para el indicador */
+    border: 1px solid var(--color-text-on-dark-muted);
+}
+
+.energy-bar-fill {
+    height: 100%;
+    border-radius: 6px; /* Mantener el borde redondeado */
+    transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out;
+}
+
+.energy-bar-red { background-color: var(--color-error, #E74C3C); }
+.energy-bar-green { background-color: var(--color-success, #2ECC71); }
+.energy-bar-yellow { background-color: var(--color-warning, #F1C40F); }
+.energy-bar-neutral { background-color: var(--color-text-on-dark-muted, #8892b0); }
+
+.energy-bar-indicator {
+    position: absolute;
+    top: -2px; /* Para centrarlo verticalmente en la barra de 12px */
+    transform: translateX(-50%); /* Centrar el indicador en su posición 'left' */
+    width: 16px; /* Tamaño del indicador */
+    height: 16px;
+    /* background-image: url('/path/to/star-icon.svg'); o usar un carácter */
+    /* background-size: contain; */
+    color: var(--color-accent-gold); /* Color de la estrella */
+    font-size: 16px; /* Tamaño de la estrella si es texto */
+    line-height: 16px;
+    text-align: center;
+    transition: left 0.5s ease-in-out;
+    text-shadow: 0 0 3px rgba(0,0,0,0.7);
+}
+
+
+/* User Stats Display (Sidebar) */
+.user-stats-container {
+    padding: 15px;
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark, #EAEAEA);
+    background-color: var(--color-bg-elevated); /* Un poco más elevado que la sidebar */
+    border-radius: var(--border-radius-standard);
+    margin-bottom: 1rem; /* Espacio si hay más elementos en la sidebar */
+}
+.user-stats-container.loading, .user-stats-container.error {
+    text-align: center;
+    font-style: italic;
+    color: var(--color-text-on-dark-muted);
+}
+
+.user-avatar-name {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.user-avatar-stats {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+    border: 2px solid var(--color-accent-gold);
+    object-fit: cover;
+}
+.user-avatar-placeholder-stats {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+    background-color: var(--color-accent-gold);
+    color: var(--color-text-on-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    font-family: var(--font-primary);
+}
+
+
+.user-name-stats {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--color-accent-gold);
+}
+
+.user-level-points {
+    margin-bottom: 8px;
+}
+
+.user-level {
+    font-size: 0.95em;
+    font-weight: bold;
+    color: var(--color-text-on-dark);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.xp-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Espacio entre la barra y el texto de XP */
+}
+
+.xp-bar-track {
+    flex-grow: 1;
+    height: 10px; /* Más delgada */
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--color-text-on-dark-muted);
+}
+
+.xp-bar-fill {
+    height: 100%;
+    background-color: var(--color-accent-secondary, #50C878); /* Verde para progreso */
+    border-radius: 5px;
+    transition: width 0.5s ease-in-out;
+}
+
+.xp-text {
+    font-size: 0.75em; /* Más pequeño */
+    color: var(--color-text-on-dark-muted, #8892b0);
+    white-space: nowrap;
+}
+
+.user-streak {
+    font-size: 0.9em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-top: 8px;
+}
+.user-streak span[role="img"] {
+    font-size: 1.1em;
+    margin-right: 4px;
+    color: #FF9800; /* Naranja para el fuego */
+}

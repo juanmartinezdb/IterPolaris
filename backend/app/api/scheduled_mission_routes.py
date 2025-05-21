@@ -3,33 +3,31 @@ from flask import Blueprint, request, jsonify, g, current_app
 from app.models import db, User, Quest, Tag, ScheduledMission, EnergyLog 
 from app.auth_utils import token_required
 import uuid
-from datetime import datetime, timezone, date # Asegúrate que 'date' esté si lo usas en parse_date_query_param
+from datetime import datetime, timezone, date
+from app.services.gamification_services import update_user_stats_after_mission # Import service
 
 scheduled_mission_bp = Blueprint('scheduled_mission_bp', __name__, url_prefix='/api/scheduled-missions')
 
 def validate_iso_datetime(dt_str):
-    """Valida si un string es un ISO 8601 datetime y lo convierte a objeto datetime con UTC."""
     if not dt_str:
         return None, "Datetime string cannot be empty."
     try:
         if dt_str.endswith('Z'):
             dt_obj = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
-        elif '+' in dt_str[10:]: 
+        elif '+' in dt_str[10:] or '-' in dt_str[10:]: # Check for timezone offset
             dt_obj = datetime.fromisoformat(dt_str)
-        else: 
+        else: # Assume naive, convert to UTC
             dt_obj = datetime.fromisoformat(dt_str)
-            if dt_obj.tzinfo is None: 
-                dt_obj = dt_obj.replace(tzinfo=timezone.utc) 
+            if dt_obj.tzinfo is None: # If still naive after fromisoformat
+                dt_obj = dt_obj.replace(tzinfo=timezone.utc) # Treat as UTC
         
-        return dt_obj.astimezone(timezone.utc), None
+        return dt_obj.astimezone(timezone.utc), None # Ensure it's UTC
     except ValueError as e:
         return None, f"Invalid ISO 8601 datetime format: {e}"
     except Exception as e: 
         return None, f"Error parsing datetime: {e}"
 
-
 def validate_scheduled_mission_data(data, is_update=False):
-    """Validates scheduled mission data for POST and PUT requests."""
     errors = {}
     required_fields_on_create = ['title', 'energy_value', 'points_value', 'start_datetime', 'end_datetime']
 
@@ -97,13 +95,10 @@ def parse_date_query_param(date_str):
     if not date_str:
         return None
     try:
-        # Using datetime.date.fromisoformat for robust YYYY-MM-DD parsing
         return date.fromisoformat(date_str.split('T')[0]) 
     except ValueError:
         return None
 
-# --- CORRECCIÓN AQUÍ ---
-# El decorador de ruta DEBE estar inmediatamente encima de la función 'def'
 @scheduled_mission_bp.route('', methods=['POST'])
 @token_required
 def create_scheduled_mission():
@@ -193,7 +188,6 @@ def create_scheduled_mission():
         current_app.logger.error(f"Error creating scheduled mission for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to create scheduled mission due to an internal error"}), 500
 
-
 @scheduled_mission_bp.route('', methods=['GET'])
 @token_required
 def get_scheduled_missions():
@@ -205,7 +199,8 @@ def get_scheduled_missions():
     filter_end_date_str = request.args.get('filter_end_date')
 
     try:
-        query = ScheduledMission.query.filter_by(user_id=current_user.id)
+        query = ScheduledMission.query.options(db.joinedload(ScheduledMission.quest), db.selectinload(ScheduledMission.tags))\
+                                   .filter_by(user_id=current_user.id)
 
         if quest_id_filter_str:
             try:
@@ -219,7 +214,8 @@ def get_scheduled_missions():
             if tag_ids_list_str:
                 try:
                     tag_uuids = [uuid.UUID(tid) for tid in tag_ids_list_str]
-                    query = query.filter(ScheduledMission.tags.any(Tag.id.in_(tag_uuids)))
+                    for tag_uuid_item in tag_uuids: # Ensure mission has ALL specified tags
+                        query = query.filter(ScheduledMission.tags.any(Tag.id == tag_uuid_item))
                 except ValueError:
                     current_app.logger.warning(f"Invalid tag_id format in tags filter: {tag_ids_filter_str}")
 
@@ -238,12 +234,7 @@ def get_scheduled_missions():
         
         missions_data = []
         for mission in missions:
-            quest_name_val = None
-            if mission.quest_id: 
-                quest_obj = Quest.query.get(mission.quest_id)
-                if quest_obj:
-                    quest_name_val = quest_obj.name
-            
+            quest_name_val = mission.quest.name if mission.quest else None
             mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission.tags]
             missions_data.append({
                 "id": str(mission.id),
@@ -270,11 +261,12 @@ def get_scheduled_missions():
 def get_scheduled_mission(mission_id):
     current_user = g.current_user
     try:
-        mission = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
+        mission = ScheduledMission.query.options(db.joinedload(ScheduledMission.quest), db.selectinload(ScheduledMission.tags))\
+                                    .filter_by(id=mission_id, user_id=current_user.id).first()
         if not mission:
             return jsonify({"error": "Scheduled Mission not found or access denied"}), 404
         
-        quest_name_val = Quest.query.get(mission.quest_id).name if mission.quest_id else None
+        quest_name_val = mission.quest.name if mission.quest else None
         mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission.tags]
         return jsonify({
             "id": str(mission.id),
@@ -295,12 +287,11 @@ def get_scheduled_mission(mission_id):
         current_app.logger.error(f"Error fetching scheduled mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch scheduled mission"}), 500
 
-
 @scheduled_mission_bp.route('/<uuid:mission_id>', methods=['PUT'])
 @token_required
 def update_scheduled_mission(mission_id):
     data = request.get_json()
-    current_user = g.current_user
+    current_user = g.current_user # type: User
 
     mission_to_update = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
     if not mission_to_update:
@@ -311,6 +302,8 @@ def update_scheduled_mission(mission_id):
         return jsonify({"errors": errors}), 400
 
     try:
+        old_status = mission_to_update.status
+        
         if 'title' in data: mission_to_update.title = data['title'].strip()
         if 'description' in data: mission_to_update.description = data['description'].strip() if data.get('description') else None
         if 'energy_value' in data: mission_to_update.energy_value = data['energy_value']
@@ -320,23 +313,8 @@ def update_scheduled_mission(mission_id):
         
         if mission_to_update.end_datetime <= mission_to_update.start_datetime:
              return jsonify({"errors": {"end_datetime": "End datetime must be after start datetime after update."}}), 400
-
-        if 'status' in data and data['status'] in ['PENDING', 'COMPLETED', 'SKIPPED']:
-            old_status = mission_to_update.status
-            new_status = data['status']
-            mission_to_update.status = new_status
-            if new_status == 'COMPLETED' and old_status != 'COMPLETED':
-                current_app.logger.info(f"ScheduledMission {mission_id} completed. Logging energy/points (placeholder).")
-                energy_log_entry = EnergyLog(
-                    user_id=current_user.id,
-                    source_entity_type='SCHEDULED_MISSION',
-                    source_entity_id=mission_to_update.id,
-                    energy_value=mission_to_update.energy_value,
-                    reason_text=f"Completed Scheduled Mission: {mission_to_update.title}"
-                )
-                db.session.add(energy_log_entry)
         
-        final_assigned_quest_object = Quest.query.get(mission_to_update.quest_id) if mission_to_update.quest_id else None
+        final_assigned_quest_object = mission_to_update.quest
 
         if 'quest_id' in data:
             quest_id_str = data.get('quest_id')
@@ -367,6 +345,37 @@ def update_scheduled_mission(mission_id):
             else:
                 mission_to_update.tags = []
 
+        # Status change and gamification logic is primarily handled by the PATCH endpoint
+        # However, if status is part of the PUT data, we should respect it,
+        # but avoid double-counting if PATCH is called immediately after.
+        # For PUT, we assume the client sends the *intended final state*.
+        if 'status' in data:
+            new_status = data['status']
+            if new_status != old_status and new_status in ['PENDING', 'COMPLETED', 'SKIPPED']:
+                mission_to_update.status = new_status
+                points_change = 0
+                energy_value_change = None
+                log_reason = None
+
+                if new_status == 'COMPLETED': # Just completed
+                    points_change = mission_to_update.points_value
+                    energy_value_change = mission_to_update.energy_value
+                    log_reason = f"Completed Scheduled Mission: {mission_to_update.title}"
+                elif old_status == 'COMPLETED' and (new_status == 'PENDING' or new_status == 'SKIPPED'): # Reverted
+                    points_change = -mission_to_update.points_value
+                    energy_value_change = -mission_to_update.energy_value
+                    log_reason = f"Reverted Scheduled Mission completion: {mission_to_update.title}"
+                
+                if log_reason:
+                    update_user_stats_after_mission(
+                        user=current_user,
+                        points_change=points_change,
+                        energy_value_change=energy_value_change,
+                        source_entity_type='SCHEDULED_MISSION',
+                        source_entity_id=mission_to_update.id,
+                        reason_text=log_reason
+                    )
+        
         db.session.commit()
         
         mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission_to_update.tags]
@@ -382,6 +391,8 @@ def update_scheduled_mission(mission_id):
             "quest_id": str(mission_to_update.quest_id) if mission_to_update.quest_id else None,
             "quest_name": final_assigned_quest_object.name if final_assigned_quest_object else None,
             "tags": mission_tags_data,
+            "user_total_points": current_user.total_points,
+            "user_level": current_user.level,
             "updated_at": mission_to_update.updated_at.isoformat()
         }), 200
 
@@ -400,6 +411,17 @@ def delete_scheduled_mission(mission_id):
         if not mission_to_delete:
             return jsonify({"error": "Scheduled Mission not found or access denied"}), 404
 
+        # If the mission was completed, points/energy should be reversed
+        if mission_to_delete.status == 'COMPLETED':
+             update_user_stats_after_mission(
+                user=current_user,
+                points_change=-mission_to_delete.points_value,
+                energy_value_change=-mission_to_delete.energy_value,
+                source_entity_type='SCHEDULED_MISSION',
+                source_entity_id=mission_to_delete.id,
+                reason_text=f"Deleted completed Scheduled Mission: {mission_to_delete.title}"
+            )
+        
         mission_to_delete.tags = [] 
         db.session.flush()
         
@@ -407,7 +429,11 @@ def delete_scheduled_mission(mission_id):
         db.session.delete(mission_to_delete)
         db.session.commit()
         
-        return jsonify({"message": f"Scheduled Mission '{mission_title_deleted}' deleted successfully."}), 200
+        return jsonify({
+            "message": f"Scheduled Mission '{mission_title_deleted}' deleted successfully.",
+            "user_total_points": current_user.total_points, # Return updated stats
+            "user_level": current_user.level
+        }), 200
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting scheduled mission {mission_id} for user {current_user.id}: {e}", exc_info=True)
@@ -429,47 +455,56 @@ def update_scheduled_mission_status(mission_id):
             return jsonify({"error": "Scheduled Mission not found or access denied"}), 404
 
         old_status = mission.status
+        
+        # Prevent re-processing if status is already the target status
+        if old_status == new_status.upper():
+             quest_name_val = mission.quest.name if mission.quest else None
+             mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission.tags]
+             return jsonify({
+                "id": str(mission.id), "title": mission.title, "description": mission.description,
+                "energy_value": mission.energy_value, "points_value": mission.points_value,
+                "start_datetime": mission.start_datetime.isoformat(), "end_datetime": mission.end_datetime.isoformat(),
+                "status": mission.status,
+                "quest_id": str(mission.quest_id) if mission.quest_id else None,
+                "quest_name": quest_name_val,
+                "tags": mission_tags_data,
+                "user_total_points": current_user.total_points,
+                "user_level": current_user.level,
+                "updated_at": mission.updated_at.isoformat()
+            }), 200
+
         mission.status = new_status.upper()
         
-        energy_log_reason = None
-        log_energy_value = None
-        points_to_change = 0
+        points_change = 0
+        energy_value_change = None
+        log_reason = None
 
-        if mission.status == 'COMPLETED' and old_status != 'COMPLETED':
-            points_to_change = mission.points_value
-            energy_log_reason = f"Completed Scheduled Mission: {mission.title}"
-            log_energy_value = mission.energy_value
-            current_app.logger.info(f"ScheduledMission {mission.id} COMPLETED via PATCH. Points: +{points_to_change}, Energy: {log_energy_value}")
-        elif old_status == 'COMPLETED' and (mission.status == 'PENDING' or mission.status == 'SKIPPED'): # Reversión
-            points_to_change = -mission.points_value
-            energy_log_reason = f"Reverted Scheduled Mission completion: {mission.title}"
-            log_energy_value = -mission.energy_value
-            current_app.logger.info(f"ScheduledMission {mission.id} REVERTED via PATCH. Points: {points_to_change}, Energy: {log_energy_value}")
-
-        if points_to_change != 0:
-            current_user.total_points += points_to_change
-
-        if energy_log_reason and log_energy_value is not None:
-            energy_log_entry = EnergyLog(
-                user_id=current_user.id,
+        if mission.status == 'COMPLETED': # Transition TO COMPLETED
+            points_change = mission.points_value
+            energy_value_change = mission.energy_value
+            log_reason = f"Completed Scheduled Mission: {mission.title}"
+        elif old_status == 'COMPLETED' and (mission.status == 'PENDING' or mission.status == 'SKIPPED'): # Reverting FROM COMPLETED
+            points_change = -mission.points_value
+            energy_value_change = -mission.energy_value
+            log_reason = f"Reverted Scheduled Mission completion: {mission.title}"
+        
+        if log_reason: # Only call if there was a status change that affects stats
+            update_user_stats_after_mission(
+                user=current_user,
+                points_change=points_change,
+                energy_value_change=energy_value_change,
                 source_entity_type='SCHEDULED_MISSION',
                 source_entity_id=mission.id,
-                energy_value=log_energy_value,
-                reason_text=energy_log_reason
+                reason_text=log_reason
             )
-            db.session.add(energy_log_entry)
-        
-        # Aquí llamaremos a la función para recalcular nivel más adelante (Subtask 8.5)
-        # update_user_level(current_user)
-
+            
         db.session.commit()
 
-        quest_name_val = Quest.query.get(mission.quest_id).name if mission.quest_id else None
+        quest_name_val = mission.quest.name if mission.quest else None
         mission_tags_data = [{"id": str(tag.id), "name": tag.name} for tag in mission.tags]
 
         return jsonify({
             "id": str(mission.id),
-            # ... (otros campos como antes) ...
             "title": mission.title, "description": mission.description,
             "energy_value": mission.energy_value, "points_value": mission.points_value,
             "start_datetime": mission.start_datetime.isoformat(), "end_datetime": mission.end_datetime.isoformat(),
@@ -477,8 +512,8 @@ def update_scheduled_mission_status(mission_id):
             "quest_id": str(mission.quest_id) if mission.quest_id else None,
             "quest_name": quest_name_val,
             "tags": mission_tags_data,
-            "user_total_points": current_user.total_points, # Devolver puntos actualizados
-            "user_level": current_user.level,             # Devolver nivel (se actualizará en 8.5)
+            "user_total_points": current_user.total_points,
+            "user_level": current_user.level,
             "updated_at": mission.updated_at.isoformat()
         }), 200
     except Exception as e:

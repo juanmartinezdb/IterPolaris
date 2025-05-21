@@ -1,13 +1,13 @@
-from flask import Blueprint, request, jsonify, current_app, g # Añadido 'g' para el contexto de la aplicación
-from app.models import User, db, Quest, Tag
-from app.auth_utils import generate_jwt, token_required, decode_jwt # decode_jwt no se usa aquí directamente pero es parte del módulo
+# backend/app/api/auth_routes.py
+from flask import Blueprint, request, jsonify, current_app, g
+from app.models import User, db, Quest, Tag # Asegúrate que Tag esté importado si lo usas
+from app.auth_utils import generate_jwt, token_required 
 import re
-from datetime import date
+from datetime import date, timedelta # Añadido timedelta
 
 auth_bp = Blueprint('auth_bp', __name__, url_prefix='/api/auth')
 
 def is_valid_email(email_string):
-    """ Función simple para validar el formato de un email usando regex. """
     pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     return re.match(pattern, email_string) is not None
 
@@ -21,14 +21,12 @@ def register():
     password = data.get('password')
     name = data.get('name')
 
-    # --- Validaciones de Entrada ---
     if not email or not password or not name:
         return jsonify({"error": "Missing fields: email, password, and name are required"}), 400
     
     if not isinstance(email, str) or not isinstance(password, str) or not isinstance(name, str):
         return jsonify({"error": "Invalid input type for fields"}), 400
 
-    # Asumo que tienes una función is_valid_email(email) definida en este archivo o importada
     if not is_valid_email(email): 
         return jsonify({"error": "Invalid email format"}), 400
             
@@ -38,26 +36,19 @@ def register():
     if len(name.strip()) == 0:
         return jsonify({"error": "Name cannot be empty"}), 400
 
-    # --- Verificar si el usuario ya existe ---
     if User.query.filter_by(email=email).first():
-        return jsonify({"error": "User with this email already exists"}), 409 # Conflict
+        return jsonify({"error": "User with this email already exists"}), 409
 
     try:
-        # --- Crear el Usuario ---
-        new_user = User(email=email, name=name)
-        new_user.set_password(password) # Hashear la contraseña
+        new_user = User(email=email, name=name.strip())
+        new_user.set_password(password)
         db.session.add(new_user)
-        
-        # Hacemos un flush para que new_user.id esté disponible para la Quest por defecto,
-        # pero sin comitear la transacción todavía.
         db.session.flush()
 
-        # --- Crear la Quest por Defecto ---
         default_quest_name = "General" 
-        default_quest_color = "#808080" # Gris neutral, puedes cambiarlo
-        
+        default_quest_color = "#808080"
         default_quest = Quest(
-            user_id=new_user.id, # user_id ahora está disponible después del flush
+            user_id=new_user.id,
             name=default_quest_name,
             description="A general Quest for unsorted missions or your main focus.",
             color=default_quest_color,
@@ -65,19 +56,19 @@ def register():
         )
         db.session.add(default_quest)
 
-        # --- Crear Tags por Defecto ---
-        default_tags_names = ["Urgent", "Important", "Personal", "Work", "Quick Win"]       
+        # PRD: "Base tags can be auto-created on registration."
+        default_tags_names = ["Urgent", "Important", "Personal", "Work", "Quick Win", "Study", "Health"]       
         for tag_name in default_tags_names:
-            if not Tag.query.filter_by(user_id=new_user.id, name=tag_name).first():
+            if not Tag.query.filter_by(user_id=new_user.id, name=tag_name).first(): # Evitar duplicados si algo falla y se reintenta
                 default_tag = Tag(user_id=new_user.id, name=tag_name)
                 db.session.add(default_tag)
+        
+        # Initialize streak and last_login_date for new user
+        new_user.current_streak = 1
+        new_user.last_login_date = date.today()
 
-
-
-        # --- Comitear la transacción (Usuario y Quest por Defecto) ---
         db.session.commit()
 
-        # --- Generar JWT para el auto-login ---
         token = generate_jwt(new_user.id, new_user.email)
 
         if token:
@@ -93,22 +84,17 @@ def register():
                     "avatar_url": new_user.avatar_url,
                     "current_streak": new_user.current_streak,
                     "last_login_date": new_user.last_login_date.isoformat() if new_user.last_login_date else None
-                    # No incluimos la Quest por defecto aquí, el frontend la obtendrá al listar Quests
                 }
-            }), 201 # 201 Created
+            }), 201
         else:
-            # Este caso es menos probable si generate_jwt es robusto, pero es un fallback.
-            # El usuario y la Quest por defecto SÍ se crearon y comitearon.
-            current_app.logger.error(f"Token generation failed for new user {new_user.email} after registration (user and default quest created).")
-            # Podrías devolver un mensaje específico indicando que se registre manualmente.
+            current_app.logger.error(f"Token generation failed for new user {new_user.email} after registration.")
             return jsonify({
                 "message": "User registered successfully, but auto-login failed. Please log in.",
-                # No devolvemos datos del usuario aquí ya que no hay token.
-            }), 201 # Aún 201 porque el recurso principal (usuario) fue creado.
+            }), 201 
     
     except Exception as e:
-        db.session.rollback() # Revierte la creación del usuario y la Quest por defecto
-        current_app.logger.error(f"Error during registration for {email}: {e}")
+        db.session.rollback()
+        current_app.logger.error(f"Error during registration for {email}: {e}", exc_info=True)
         return jsonify({"error": "Registration failed due to an internal server error"}), 500
 
 
@@ -129,12 +115,24 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user and user.check_password(password):
-        user.last_login_date = date.today()
+        today = date.today()
+        if user.last_login_date:
+            if user.last_login_date == today:
+                pass # Already logged in today, streak doesn't change
+            elif user.last_login_date == (today - timedelta(days=1)):
+                user.current_streak = (user.current_streak or 0) + 1 # Ensure current_streak is not None
+            else: 
+                user.current_streak = 1 
+        else: 
+            user.current_streak = 1
+        
+        user.last_login_date = today
+        
         try:
             db.session.commit()
-        except Exception as e:
+        except Exception as e_commit:
             db.session.rollback()
-            current_app.logger.error(f"Error updating last_login_date for user {user.id}: {e}")
+            current_app.logger.error(f"Error updating user stats for {user.email} during login: {e_commit}", exc_info=True)
         
         token = generate_jwt(user.id, user.email)
         if token:
@@ -153,6 +151,8 @@ def login():
                 }
             }), 200
         else:
+            # This case should ideally not happen if generate_jwt is robust
+            current_app.logger.error(f"Login successful for {user.email} but failed to generate token.")
             return jsonify({"error": "Login successful but failed to generate token"}), 500
     else:
         return jsonify({"error": "Invalid email or password"}), 401
@@ -161,8 +161,11 @@ def login():
 @token_required
 def logout():
     user_email = "Unknown user"
-    if hasattr(g, 'current_user') and g.current_user: # g.current_user es el objeto User completo
+    if hasattr(g, 'current_user') and g.current_user:
         user_email = g.current_user.email
+    # For JWT, logout is primarily a client-side concern (deleting the token).
+    # Server-side might involve adding token to a blacklist if using refresh tokens.
+    # For simplicity, this endpoint just confirms the request.
     return jsonify({"message": f"User {user_email} logout successful. Please clear your token on the client-side."}), 200
 
 @auth_bp.route('/me', methods=['GET'])
@@ -170,6 +173,7 @@ def logout():
 def get_current_user_profile():
     user = g.current_user 
     if not user:
+        # This case should ideally be caught by @token_required if token is invalid or user deleted
         return jsonify({"error": "Current user not found in request context"}), 401
         
     return jsonify({
@@ -184,9 +188,13 @@ def get_current_user_profile():
         "created_at": user.created_at.isoformat() if user.created_at else None
     }), 200
 
-# --- NUEVO ENDPOINT PARA RESETEO DE CONTRASEÑA (MODO DESARROLLO) ---
 @auth_bp.route('/dev-reset-password', methods=['POST'])
 def dev_reset_password():
+    # NOTE: This is a development-only endpoint and should NOT be present in production.
+    # Consider protecting it with a specific dev environment check if this code ever goes to staging/prod.
+    if current_app.env != 'development': # Simple check, can be made more robust
+        return jsonify({"error": "This endpoint is for development use only."}), 403
+
     data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid input: No data provided"}), 400
@@ -212,10 +220,10 @@ def dev_reset_password():
         return jsonify({"error": "User with this email not found"}), 404
 
     try:
-        user.set_password(new_password) # Hashea y establece la nueva contraseña
+        user.set_password(new_password)
         db.session.commit()
         return jsonify({"message": f"Password for user {email} has been reset successfully."}), 200
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error resetting password for {email}: {e}")
+        current_app.logger.error(f"Error resetting password for {email} (dev): {e}", exc_info=True)
         return jsonify({"error": "Password reset failed due to an internal server error"}), 500

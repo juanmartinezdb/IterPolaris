@@ -69,6 +69,12 @@ def create_app(config_class=None):
 
     from .api.habit_occurrence_routes import habit_occurrence_bp
     app.register_blueprint(habit_occurrence_bp)
+
+    from .api.energy_log_routes import energy_log_bp
+    app.register_blueprint(energy_log_bp)
+
+    from .api.gamification_routes import gamification_bp
+    app.register_blueprint(gamification_bp)
     
     @app.route('/')
     def hello():
