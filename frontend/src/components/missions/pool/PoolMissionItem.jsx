@@ -18,30 +18,44 @@ function getContrastColor(hexColor) {
     return (yiq >= 128) ? '#0A192F' : '#EAEAEA'; 
 }
 
-// Added onDragStart prop
-function PoolMissionItem({ mission, onEdit, onDelete, onToggleFocus, onToggleComplete, questColors = {}, onDragStart }) {
+// Props expected: mission, questColors, onDragStart
+// For actions: onEdit, onDelete, onToggleFocus, onToggleComplete
+function PoolMissionItem({ 
+    mission, 
+    questColors = {}, 
+    onDragStart,
+    onEdit,
+    onDelete,
+    onToggleFocus,
+    onToggleComplete 
+}) {
     
     const handleCompleteToggle = () => {
-        const newStatus = mission.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
-        onToggleComplete(mission, newStatus);
+        if (onToggleComplete) { // Check if the function is provided
+            const newStatus = mission.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+            onToggleComplete(mission, newStatus);
+        } else {
+            console.error("PoolMissionItem: onToggleComplete prop is not defined");
+        }
     };
 
     const handleFocusToggle = () => {
-        const newFocusStatus = mission.focus_status === 'ACTIVE' ? 'DEFERRED' : 'ACTIVE';
-        onToggleFocus(mission, newFocusStatus);
+        if (onToggleFocus) { // Check if the function is provided
+            const newFocusStatus = mission.focus_status === 'ACTIVE' ? 'DEFERRED' : 'ACTIVE';
+            onToggleFocus(mission, newFocusStatus);
+        } else {
+            console.error("PoolMissionItem: onToggleFocus prop is not defined");
+        }
     };
 
     const questColor = mission.quest_id && questColors[mission.quest_id] ? questColors[mission.quest_id] : 'var(--color-accent-gold)';
     const textColorForQuestBadge = getContrastColor(questColor);
 
-    // Handler for native HTML drag event
     const handleNativeDragStart = (e) => {
-        if (onDragStart) {
-            // Pass the mission data or a simplified version for the drag operation
+        if (onDragStart && mission.status === 'PENDING') {
             onDragStart(mission); 
-            // Optional: set drag data for cross-browser compatibility or specific data transfer
-            // e.dataTransfer.setData('application/json', JSON.stringify(mission));
-            // e.dataTransfer.effectAllowed = "move";
+        } else if (mission.status !== 'PENDING') {
+            e.preventDefault(); // Prevent dragging completed missions
         }
     };
 
@@ -49,9 +63,9 @@ function PoolMissionItem({ mission, onEdit, onDelete, onToggleFocus, onToggleCom
         <li 
             className={`pool-mission-item status-${mission.status}`} 
             style={{ borderLeftColor: questColor }}
-            draggable={mission.status === 'PENDING'} // Only allow dragging pending missions
-            onDragStart={handleNativeDragStart} // Native HTML drag event
-            title={mission.status === 'PENDING' ? "Drag to calendar to schedule" : "Mission completed"}
+            draggable={mission.status === 'PENDING'}
+            onDragStart={handleNativeDragStart}
+            title={mission.status === 'PENDING' ? "Drag to calendar to schedule or manage below" : "Mission completed"}
         >
             <div className="pool-mission-header">
                 <h4 className="pool-mission-title">{mission.title}</h4>
@@ -110,14 +124,18 @@ function PoolMissionItem({ mission, onEdit, onDelete, onToggleFocus, onToggleCom
                     {mission.focus_status === 'ACTIVE' ? 'Defer' : 'Activate'}
                 </button>
                 <button 
-                    onClick={() => onEdit(mission)} 
+                    onClick={() => onEdit ? onEdit(mission) : console.error("onEdit not provided to PoolMissionItem")} 
                     className="action-icon" 
                     title="Edit Mission" 
                     disabled={mission.status === 'COMPLETED'}
                 >
                     Edit
                 </button>
-                <button onClick={() => onDelete(mission)} className="action-icon delete-btn" title="Delete Mission">
+                <button 
+                    onClick={() => onDelete ? onDelete(mission) : console.error("onDelete not provided to PoolMissionItem")} 
+                    className="action-icon delete-btn" 
+                    title="Delete Mission"
+                >
                     Delete
                 </button>
             </div>

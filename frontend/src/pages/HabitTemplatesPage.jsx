@@ -5,7 +5,7 @@ import HabitTemplateList from '../components/habits/HabitTemplateList';
 import HabitTemplateForm from '../components/habits/HabitTemplateForm';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
 import '../styles/habittemplates.css';
-import '../styles/dialog.css'; // For modal
+import '../styles/dialog.css';
 
 const API_HABIT_TEMPLATES_URL = `${import.meta.env.VITE_API_BASE_URL}/habit-templates`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
@@ -19,7 +19,11 @@ function HabitTemplatesPage() {
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [templateToDelete, setTemplateToDelete] = useState(null);
     const [questColors, setQuestColors] = useState({});
-    const [feedbackMessage, setFeedbackMessage] = useState(''); // For success/info messages
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+
+    const clearFeedback = useCallback(() => {
+      setTimeout(() => setFeedbackMessage(''), 3000);
+    }, []);
 
     const fetchQuestColors = useCallback(async () => {
         const token = localStorage.getItem('authToken');
@@ -57,9 +61,6 @@ function HabitTemplatesPage() {
         fetchHabitTemplates();
     }, [fetchQuestColors, fetchHabitTemplates]);
     
-    const clearFeedback = () => {
-      setTimeout(() => setFeedbackMessage(''), 3000);
-    }
 
     const handleOpenCreateForm = () => {
         setEditingTemplate(null);
@@ -72,11 +73,12 @@ function HabitTemplatesPage() {
     const handleFormClose = () => {
         setShowForm(false);
         setEditingTemplate(null);
+        setError(null); // Clear form-specific errors on close
     };
-    const handleFormSubmit = () => {
-        fetchHabitTemplates();
-        handleFormClose();
-        setFeedbackMessage(editingTemplate ? 'Habit template updated!' : 'Habit template created!');
+    const handleFormSubmit = () => { // This is the key callback for the form
+        fetchHabitTemplates(); // Re-fetch the list of templates
+        handleFormClose();     // Close the form
+        setFeedbackMessage(editingTemplate ? 'Habit template updated successfully!' : 'Habit template created successfully!');
         clearFeedback();
     };
 
@@ -87,11 +89,12 @@ function HabitTemplatesPage() {
     const handleConfirmDelete = async () => {
         if (!templateToDelete) return;
         const token = localStorage.getItem('authToken');
+        setError(null); // Clear previous errors
         try {
             await axios.delete(`${API_HABIT_TEMPLATES_URL}/${templateToDelete.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchHabitTemplates();
+            fetchHabitTemplates(); // Re-fetch after delete
             setFeedbackMessage(`Habit template "${templateToDelete.title}" deleted.`);
             clearFeedback();
         } catch (err) {
@@ -108,6 +111,7 @@ function HabitTemplatesPage() {
             return;
         }
         setIsLoading(true);
+        setError(null); // Clear previous errors
         const token = localStorage.getItem('authToken');
         try {
             const response = await axios.post(`${API_HABIT_TEMPLATES_URL}/${template.id}/generate-occurrences`, {}, {
@@ -115,7 +119,7 @@ function HabitTemplatesPage() {
             });
             setFeedbackMessage(response.data.message || `Occurrences extended for "${template.title}".`);
             clearFeedback();
-            // No need to refetch templates, but occurrences list (if displayed on this page) would need update.
+            // fetchHabitTemplates(); // Optionally re-fetch templates if backend modifies template upon extension
         } catch (err) {
             setError(err.response?.data?.error || "Failed to generate more occurrences.");
         } finally {
@@ -123,14 +127,14 @@ function HabitTemplatesPage() {
         }
     };
 
-    const renderModal = () => {
+    const renderModalForm = () => {
         if (!showForm) return null;
         return (
             <div className="dialog-overlay">
                  <div className="dialog-content" style={{maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
                     <HabitTemplateForm
                         templateToEdit={editingTemplate}
-                        onFormSubmit={handleFormSubmit}
+                        onFormSubmit={handleFormSubmit} // Crucial: pass the correct handler
                         onCancel={handleFormClose}
                     />
                 </div>
@@ -152,15 +156,17 @@ function HabitTemplatesPage() {
             
             {isLoading && templates.length === 0 && <p style={{textAlign: 'center'}}>Loading habit templates...</p>}
             
-            <HabitTemplateList
-                templates={templates}
-                onEditTemplate={handleOpenEditForm}
-                onDeleteTemplate={handleDeleteRequest}
-                questColors={questColors}
-                onGenerateOccurrences={handleGenerateOccurrences}
-            />
+            {!isLoading && (
+                <HabitTemplateList
+                    templates={templates}
+                    onEditTemplate={handleOpenEditForm}
+                    onDeleteTemplate={handleDeleteRequest}
+                    questColors={questColors}
+                    onGenerateOccurrences={handleGenerateOccurrences}
+                />
+            )}
             
-            {renderModal()}
+            {renderModalForm()}
 
             {showConfirmDialog && templateToDelete && (
                 <ConfirmationDialog

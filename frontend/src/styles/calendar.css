@@ -382,3 +382,16 @@
     opacity: 0.5;
     margin: 0.25rem 0;
 }
+
+.calendar-wrapper { /* New class for the div wrapping DragAndDropCalendar */
+    height: calc(100% - 4em); /* Adjust if h2 margin changes */
+    position: relative;
+    flex-grow: 1; /* Allow this wrapper to grow */
+    display: flex; /* To make calendar inside take height */
+    flex-direction: column;
+}
+
+.rbc-calendar-container { /* New class for the DragAndDropCalendar component's style prop */
+    flex-grow: 1;
+    min-height: 0; /* Important for flex children that need to scroll */
+}
