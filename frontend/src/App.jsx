@@ -15,6 +15,7 @@ import TagsPage from './pages/TagsPage';
 import DashboardPage from './pages/DashboardPage';
 import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
 import HabitTemplatesPage from './pages/HabitTemplatesPage';
+import CalendarPage from './pages/CalendarPage';
 
 import EnergyBalanceBar from './components/gamification/EnergyBalanceBar';
 import UserStatsDisplay from './components/gamification/UserStatsDisplay';
@@ -147,6 +148,9 @@ function App() {
                              <Link to="/dashboard" className="sidebar-nav-link">
                                 <span role="img" aria-label="Dashboard Icon">🗺️</span> Dashboard
                             </Link>
+                            <Link to="/calendar" className="sidebar-nav-link">
+                               <span role="img" aria-label="Calendar Icon">📅</span> Calendar
+                           </Link>
                             <Link to="/scheduled-missions" className="sidebar-nav-link">
                                 <span role="img" aria-label="Scheduled Icon">🗓️</span> Scheduled
                             </Link>
@@ -172,6 +176,7 @@ function App() {
                         <Route element={<ProtectedRoute />}> {/* ProtectedRoute ahora usará UserContext implícitamente o se podría pasar currentUser */}
                             <Route path="/dashboard" element={<DashboardPage />} />
                             <Route path="/scheduled-missions" element={<ScheduledMissionsPage />} />
+                            <Route path="/calendar" element={<CalendarPage />} />
                             <Route path="/habit-templates" element={<HabitTemplatesPage />} />
                             <Route path="/quests" element={<QuestPage />} />
                             <Route path="/tags" element={<TagsPage />} />

@@ -1,5 +1,5 @@
 // frontend/src/components/missions/scheduled/ScheduledMissionForm.jsx
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // Removed useCallback as it wasn't used directly
 import axios from 'axios';
 import { UserContext } from '../../../contexts/UserContext';
 import TagSelector from '../../tags/TagSelector';
@@ -7,12 +7,13 @@ import QuestSelector from '../../quests/QuestSelector';
 import '../../../styles/scheduledmissions.css';
 
 const API_SCHEDULED_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/scheduled-missions`;
+const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`; // For deleting after conversion
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-const formatDateTimeForInput = (isoString) => {
-    if (!isoString) return '';
+const formatDateTimeForInput = (isoStringOrDate) => {
+    if (!isoStringOrDate) return '';
     try {
-        const date = new Date(isoString);
+        const date = new Date(isoStringOrDate); // Works for both ISO string and Date object
         const offset = date.getTimezoneOffset() * 60000;
         const localDate = new Date(date.getTime() - offset);
         return localDate.toISOString().slice(0, 16);
@@ -27,8 +28,8 @@ const formatInputDateTimeToISO = (inputDateTimeStr) => {
     } catch (e) { return null; }
 };
 
-function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
-    const { currentUser } = useContext(UserContext); // Para obtener el ID del usuario si es necesario para el default quest
+function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel }) {
+    const { currentUser } = useContext(UserContext);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -38,17 +39,19 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
         endDatetime: '',
         questId: null,
         selectedTagIds: [],
-        status: 'PENDING' // Estado por defecto para nuevas misiones
+        status: 'PENDING'
     });
 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isFetchingDefaultQuest, setIsFetchingDefaultQuest] = useState(false);
-    const isEditing = !!missionToEdit;
+    
+    const isEditing = !!missionToEdit && !slotInfo?.convertingPoolMissionId; // True if editing existing, not converting
+    const isConverting = !!slotInfo?.convertingPoolMissionId && !!missionToEdit; // True if converting pool mission
 
     useEffect(() => {
         const loadInitialData = async () => {
-            if (isEditing && missionToEdit) {
+            if (isEditing) { // Editing an existing ScheduledMission
                 setFormData({
                     title: missionToEdit.title || '',
                     description: missionToEdit.description || '',
@@ -60,37 +63,60 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
                     selectedTagIds: missionToEdit.tags ? missionToEdit.tags.map(tag => tag.id) : [],
                     status: missionToEdit.status || 'PENDING'
                 });
-            } else if (!isEditing) { // Creando nuevo
+            } else if (isConverting) { // Converting a PoolMission
+                 setFormData({
+                    title: missionToEdit.title || '', // missionToEdit here is the pool mission data
+                    description: missionToEdit.description || '',
+                    energyValue: missionToEdit.energy_value || 0,
+                    pointsValue: missionToEdit.points_value || 0,
+                    startDatetime: formatDateTimeForInput(slotInfo.start),
+                    endDatetime: formatDateTimeForInput(slotInfo.end),
+                    questId: missionToEdit.quest_id || null,
+                    selectedTagIds: missionToEdit.tags ? missionToEdit.tags.map(tag => tag.id) : [],
+                    status: 'PENDING'
+                });
+            } else if (slotInfo) { // Creating new from calendar slot
+                setIsFetchingDefaultQuest(true);
+                const token = localStorage.getItem('authToken');
+                 try {
+                    const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
+                    const quests = response.data || [];
+                    const defaultQuest = quests.find(q => q.is_default_quest);
+                    setFormData({
+                        title: '', description: '', energyValue: 10, pointsValue: 5,
+                        startDatetime: formatDateTimeForInput(slotInfo.start),
+                        endDatetime: formatDateTimeForInput(slotInfo.end),
+                        questId: defaultQuest?.id || (quests.length > 0 ? quests[0].id : null),
+                        selectedTagIds: [], status: 'PENDING'
+                    });
+                } catch (err) {
+                    console.error("ScheduledMissionForm: Failed to fetch default quest:", err);
+                    setFormData(prev => ({ ...prev, questId: null, startDatetime: formatDateTimeForInput(slotInfo.start), endDatetime: formatDateTimeForInput(slotInfo.end) }));
+                } finally { setIsFetchingDefaultQuest(false); }
+            } else { // Creating new from "Add" button (no slot/missionToEdit)
                 setIsFetchingDefaultQuest(true);
                 const token = localStorage.getItem('authToken');
                 try {
-                    const response = await axios.get(API_QUESTS_URL, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                    const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
                     const quests = response.data || [];
                     const defaultQuest = quests.find(q => q.is_default_quest);
-                    
                     const now = new Date();
                     const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-
-                    setFormData(prev => ({
-                        ...prev,
+                    setFormData({
                         title: '', description: '', energyValue: 10, pointsValue: 5,
                         startDatetime: formatDateTimeForInput(now.toISOString()),
                         endDatetime: formatDateTimeForInput(oneHourLater.toISOString()),
                         selectedTagIds: [], status: 'PENDING',
-                        questId: defaultQuest ? defaultQuest.id : (quests.length > 0 ? quests[0].id : null)
-                    }));
+                        questId: defaultQuest?.id || (quests.length > 0 ? quests[0].id : null)
+                    });
                 } catch (err) {
                     console.error("ScheduledMissionForm: Failed to fetch default quest:", err);
                     setFormData(prev => ({ ...prev, questId: null }));
-                } finally {
-                    setIsFetchingDefaultQuest(false);
-                }
+                } finally { setIsFetchingDefaultQuest(false); }
             }
         };
         loadInitialData();
-    }, [missionToEdit, isEditing]);
+    }, [missionToEdit, slotInfo, isEditing, isConverting]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -116,14 +142,11 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
         if (!formData.startDatetime || !formData.endDatetime) {
             setError('Start and End date/times are required.'); setIsLoading(false); return;
         }
-
         const finalStartDatetimeISO = formatInputDateTimeToISO(formData.startDatetime);
         const finalEndDatetimeISO = formatInputDateTimeToISO(formData.endDatetime);
-
         if (!finalStartDatetimeISO || !finalEndDatetimeISO) {
             setError('Invalid date/time format entered.'); setIsLoading(false); return;
         }
-        
         if (new Date(finalEndDatetimeISO) <= new Date(finalStartDatetimeISO)) {
             setError('End datetime must be after start datetime.'); setIsLoading(false); return;
         }
@@ -137,7 +160,7 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
             end_datetime: finalEndDatetimeISO,
             quest_id: formData.questId,
             tag_ids: formData.selectedTagIds,
-            status: isEditing ? formData.status : 'PENDING', // Enviar status actual si se edita
+            status: isEditing ? formData.status : 'PENDING',
         };
         
         const token = localStorage.getItem('authToken');
@@ -146,10 +169,17 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
         try {
             if (isEditing) {
                 await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${missionToEdit.id}`, missionDataPayload, config);
-            } else {
+                onFormSubmit();
+            } else { // Creating new (either from slot or conversion)
                 await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, config);
+                if (isConverting && slotInfo.convertingPoolMissionId) {
+                    // Delete original PoolMission
+                    await axios.delete(`${API_POOL_MISSIONS_URL}/${slotInfo.convertingPoolMissionId}`, config);
+                    onFormSubmit(true); // Pass true to indicate conversion success
+                } else {
+                    onFormSubmit();
+                }
             }
-            onFormSubmit(); // Esta función debería invocar refreshUserStatsAndEnergy del contexto
         } catch (err) {
             console.error("Failed to save scheduled mission:", err.response?.data || err.message);
             const errorData = err.response?.data;
@@ -168,10 +198,11 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
     };
     
     const formDisabled = isLoading || isFetchingDefaultQuest;
+    const formTitle = isEditing ? 'Edit Scheduled Mission' : (isConverting ? 'Convert to Scheduled Mission' : 'Create New Scheduled Mission');
 
     return (
         <div className="scheduled-mission-form-container">
-            <h3>{isEditing ? 'Edit Scheduled Mission' : 'Create New Scheduled Mission'}</h3>
+            <h3>{formTitle}</h3>
             {error && <p className="error-message">{error}</p>}
             <form onSubmit={handleSubmit} className="scheduled-mission-form">
                 <div className="form-group">
@@ -199,7 +230,7 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
                     </div>
                     <div className="form-group">
                         <label htmlFor="sm-points">Points Value:</label>
-                        <input type="number" id="sm-points" name="pointsValue" value={formData.pointsValue} min="0" onChange={handleChange} disabled={formDisabled} />
+                        <input type="number" id="sm-points" name="pointsValue" min="0" value={formData.pointsValue} onChange={handleChange} disabled={formDisabled} />
                     </div>
                 </div>
                 <div className="form-group">
@@ -214,13 +245,11 @@ function ScheduledMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
                 <TagSelector
                     selectedTagIds={formData.selectedTagIds}
                     onSelectedTagsChange={handleTagsChange}
-                    // disabled={formDisabled} // Si TagSelector soporta disabled
                 />
-                {/* El campo Status no se edita directamente en el formulario principal, sino con acciones separadas */}
                 <div className="form-actions">
                     <button type="button" onClick={onCancel} className="cancel-btn" disabled={isLoading}>Cancel</button>
                     <button type="submit" className="submit-btn" disabled={isLoading}>
-                        {isLoading ? (isEditing ? 'Saving...' : 'Creating...') : (isEditing ? 'Save Changes' : 'Create Mission')}
+                        {isLoading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Create Mission')}
                     </button>
                 </div>
             </form>
