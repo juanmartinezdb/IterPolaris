@@ -1,7 +1,7 @@
 // frontend/src/components/dashboard/MissionPoolPanel.jsx
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import axios from 'axios';
-import { UserContext } from '../../contexts/UserContext'; // Importar UserContext
+import { UserContext } from '../../contexts/UserContext';
 import PoolMissionList from '../missions/pool/PoolMissionList';
 import PoolMissionForm from '../missions/pool/PoolMissionForm';
 import ConfirmationDialog from '../common/ConfirmationDialog';
@@ -12,10 +12,11 @@ import '../../styles/dialog.css';
 const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
-    const [allMissions, setAllMissions] = useState([]);
+function MissionPoolPanel({ activeTagFilters }) {
+    const [allMissionsFromApi, setAllMissionsFromApi] = useState([]); // Stores all missions fetched based on non-focus filters
     const [activeFocusMissions, setActiveFocusMissions] = useState([]);
     const [deferredFocusMissions, setDeferredFocusMissions] = useState([]);
+    const [completedMissions, setCompletedMissions] = useState([]);
     
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -27,9 +28,9 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
     const [questColors, setQuestColors] = useState({});
 
     const [filterQuestId, setFilterQuestId] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
+    const [filterStatus, setFilterStatus] = useState('ALL'); // Default to 'ALL'
 
-    const { refreshUserStatsAndEnergy } = useContext(UserContext); // Use UserContext
+    const { refreshUserStatsAndEnergy } = useContext(UserContext);
 
     const fetchQuestsForColors = useCallback(async () => {
         const token = localStorage.getItem('authToken');
@@ -64,9 +65,16 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
         if (filterQuestId) {
             params.append('quest_id', filterQuestId);
         }
-        if (filterStatus) {
-            params.append('status', filterStatus);
+
+        // Adjust status query based on filterStatus
+        if (filterStatus === 'PENDING') {
+            params.append('status', 'PENDING');
+        } else if (filterStatus === 'COMPLETED') {
+            params.append('status', 'COMPLETED');
+        } else { // For 'ALL', we don't append status, or backend handles 'ALL_STATUSES'
+            params.append('status', 'ALL_STATUSES'); // Backend handles this to fetch both
         }
+
 
         try {
             const response = await axios.get(API_POOL_MISSIONS_URL, {
@@ -74,16 +82,23 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
                 params: params
             });
             const missions = response.data || [];
-            setAllMissions(missions); 
+            setAllMissionsFromApi(missions); 
+            
+            // Filter locally based on the selected filterStatus for display logic
+            // The backend might already return filtered data if 'status' param is PENDING or COMPLETED.
+            // If 'ALL_STATUSES' is sent, backend returns both, and we filter here for display sections.
+
             setActiveFocusMissions(missions.filter(m => m.status === 'PENDING' && m.focus_status === 'ACTIVE'));
             setDeferredFocusMissions(missions.filter(m => m.status === 'PENDING' && m.focus_status === 'DEFERRED'));
-            // Completed missions can be shown in a separate list if desired, or filtered out if not needed in this panel
+            setCompletedMissions(missions.filter(m => m.status === 'COMPLETED'));
+
         } catch (err) {
             console.error("MissionPoolPanel: Failed to fetch pool missions:", err);
             setError(err.response?.data?.error || "Failed to fetch pool missions.");
-            setAllMissions([]);
+            setAllMissionsFromApi([]);
             setActiveFocusMissions([]);
             setDeferredFocusMissions([]);
+            setCompletedMissions([]);
         } finally {
             setIsLoading(false);
         }
@@ -110,9 +125,9 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
         setShowForm(false);
         setEditingMission(null);
     };
-    const handleFormSubmit = () => { // Called after successful form submission
-        fetchPoolMissions(); // Refetch all pool missions
-        refreshUserStatsAndEnergy(); // Refresh global user stats and energy (in case points/energy changed via form, though less common for pool)
+    const handleFormSubmit = () => { 
+        fetchPoolMissions(); 
+        refreshUserStatsAndEnergy(); 
         handleFormClose();
     };
 
@@ -129,11 +144,7 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
             await axios.delete(`${API_POOL_MISSIONS_URL}/${missionToDelete.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            fetchPoolMissions(); // Refetch missions
-            // If deleting a completed mission had reversed points/energy, backend would handle it.
-            // We then call refreshUserStatsAndEnergy to update frontend displays.
-            // For pool missions, deletion typically doesn't award/revoke points unless it was completed.
-            // Assuming backend handles any reversal logic for completed items if applicable on delete.
+            fetchPoolMissions(); 
             refreshUserStatsAndEnergy();
         } catch (err) {
             console.error("MissionPoolPanel: Delete error", err.response?.data || err.message);
@@ -153,7 +164,6 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             fetchPoolMissions(); 
-            // Focus status change does not affect points/energy, so no need to call refreshUserStatsAndEnergy
         } catch (err) {
             console.error("MissionPoolPanel: Focus toggle error", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to update focus status.");
@@ -164,24 +174,21 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
         const token = localStorage.getItem('authToken');
         setError(null);
         try {
-            // The PUT endpoint for PoolMission expects all relevant fields.
-            // We are only changing 'status' here based on UI interaction.
-            // The backend's PUT /api/pool-missions/:id handles the points/energy logic.
             const payload = {
-                ...mission, // Send existing mission data
-                tags: mission.tags.map(t => t.id), // Send tag IDs
+                ...mission, 
+                tags: mission.tags.map(t => t.id),
                 status: newStatus
             };
-            delete payload.id; // Don't send id in body for PUT
+            delete payload.id; 
             delete payload.created_at;
             delete payload.updated_at;
-            delete payload.quest_name; // Not part of the model for PUT
+            delete payload.quest_name; 
 
             const response = await axios.put(`${API_POOL_MISSIONS_URL}/${mission.id}`, 
                 payload,
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
-            fetchPoolMissions(); // Refresh list
+            fetchPoolMissions(); 
 
             if (response.data && (response.data.user_total_points !== undefined || response.data.user_level !== undefined)) {
                 refreshUserStatsAndEnergy({
@@ -212,10 +219,13 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
         );
     };
 
-    const completedMissions = allMissions.filter(m => m.status === 'COMPLETED');
+    // Determine which lists to show based on filterStatus
+    const showActiveFocus = filterStatus === 'ALL' || filterStatus === 'PENDING';
+    const showDeferredFocus = filterStatus === 'ALL' || filterStatus === 'PENDING';
+    const showCompleted = filterStatus === 'ALL' || filterStatus === 'COMPLETED';
 
     return (
-        <div className="mission-pool-panel dashboard-panel"> {/* Added dashboard-panel class */}
+        <div className="mission-pool-panel dashboard-panel">
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
                 <h3>Mission Pool</h3>
                 <button 
@@ -241,10 +251,9 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
                 <div>
                     <label htmlFor="filter-status-pool">Status:</label>
                     <select id="filter-status-pool" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} disabled={isLoading}>
-                        <option value="">All (Pending)</option> {/* Default to pending if "All" for status is confusing */}
+                        <option value="ALL">All</option>
                         <option value="PENDING">Pending</option>
                         <option value="COMPLETED">Completed</option>
-                         <option value="ALL_STATUSES">All Statuses</option> {/* If you want to show all including completed here */}
                     </select>
                 </div>
             </div>
@@ -257,10 +266,10 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
                     No pool missions here. Add some!
                 </p>
             )}
-
+            
             {!isLoading && !error && (
                 <>
-                    {activeFocusMissions.length > 0 && (
+                    {showActiveFocus && activeFocusMissions.length > 0 && (
                         <PoolMissionList
                             missions={activeFocusMissions}
                             title="Active Focus"
@@ -271,7 +280,7 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
                             questColors={questColors}
                         />
                     )}
-                     {deferredFocusMissions.length > 0 && (
+                     {showDeferredFocus && deferredFocusMissions.length > 0 && (
                         <PoolMissionList
                             missions={deferredFocusMissions}
                             title="Deferred Focus"
@@ -282,15 +291,14 @@ function MissionPoolPanel({ activeTagFilters }) { // activeTagFilters from props
                             questColors={questColors}
                         />
                     )}
-                    {/* Optional: Show completed pool missions here if filterStatus is 'COMPLETED' or 'ALL_STATUSES' */}
-                    {filterStatus === 'COMPLETED' && completedMissions.length > 0 && (
+                    {showCompleted && completedMissions.length > 0 && (
                          <PoolMissionList
                             missions={completedMissions}
                             title="Completed"
-                            onEditMission={handleOpenEditForm} // Likely disabled for completed
+                            onEditMission={handleOpenEditForm}
                             onDeleteMission={handleDeleteRequest}
-                            onToggleFocusStatus={handleToggleFocusStatus} // Likely N/A for completed
-                            onToggleCompleteStatus={handleToggleCompleteStatus} // To revert
+                            onToggleFocusStatus={handleToggleFocusStatus}
+                            onToggleCompleteStatus={handleToggleCompleteStatus}
                             questColors={questColors}
                         />
                     )}
