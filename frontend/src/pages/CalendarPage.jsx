@@ -26,7 +26,7 @@ import '../styles/dialog.css';
 const locales = { 'en-US': enUS, 'en-GB': enGB };
 const localizer = dateFnsLocalizer({
     format, parse,
-    startOfWeek: (date) => startOfWeek(date, { locale: locales['en-GB'] }),
+    startOfWeek: (date) => startOfWeek(date, { locale: locales['en-GB'] }), // Week starts on Monday
     getDay, locales,
 });
 const DragAndDropCalendar = withDragAndDrop(Calendar);
@@ -45,8 +45,14 @@ function CalendarPage() {
     const [infoMessage, setInfoMessage] = useState('');
     const [questColors, setQuestColors] = useState({});
     
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [currentView, setCurrentView] = useState(Views.WEEK);
+    // Initialize view and date from localStorage or defaults
+    const [currentView, setCurrentView] = useState(() => {
+        return localStorage.getItem('calendarLastView') || Views.WEEK;
+    });
+    const [currentDate, setCurrentDate] = useState(() => {
+        const savedDate = localStorage.getItem('calendarLastDate');
+        return savedDate ? new Date(savedDate) : new Date();
+    });
 
     const [showScheduledMissionForm, setShowScheduledMissionForm] = useState(false);
     const [editingScheduledMission, setEditingScheduledMission] = useState(null);
@@ -66,7 +72,18 @@ function CalendarPage() {
     const [actionMenu, setActionMenu] = useState({ visible: false, x: 0, y: 0, event: null });
     const calendarRef = useRef(null);
 
-    const clearInfoMessage = () => setTimeout(() => setInfoMessage(''), 4000);
+    const clearInfoMessage = useCallback(() => {
+        setTimeout(() => setInfoMessage(''), 4000);
+    },[]);
+
+    // Save view and date to localStorage whenever they change due to user navigation
+    useEffect(() => {
+        localStorage.setItem('calendarLastView', currentView);
+    }, [currentView]);
+
+    useEffect(() => {
+        localStorage.setItem('calendarLastDate', currentDate.toISOString());
+    }, [currentDate]);
 
     const fetchQuestColors = useCallback(async () => {
         const token = localStorage.getItem('authToken');
@@ -79,9 +96,11 @@ function CalendarPage() {
         } catch (err) { console.error("CalendarPage: Failed to fetch quests for colors:", err); }
     }, [currentUser]);
 
-    const fetchCalendarEvents = useCallback(async (forceRefresh = false) => {
-        if (!currentUser) return;
-        if (!forceRefresh && isLoadingEvents) return; 
+    const fetchCalendarEvents = useCallback(async () => {
+        if (!currentUser?.id) {
+            setEvents([]);
+            return;
+        }
         setIsLoadingEvents(true);
         setError(null);
         const token = localStorage.getItem('authToken');
@@ -107,14 +126,17 @@ function CalendarPage() {
         } finally {
             setIsLoadingEvents(false);
         }
-    }, [currentUser, isLoadingEvents]);
+    }, [currentUser?.id]); // Depend on currentUser.id
 
     useEffect(() => { fetchQuestColors(); }, [fetchQuestColors]);
+    
     useEffect(() => {
-        if (currentUser) {
-            fetchCalendarEvents(true);
+        if (currentUser?.id) {
+            fetchCalendarEvents();
+        } else {
+            setEvents([]);
         }
-    }, [currentUser, fetchCalendarEvents]);
+    }, [currentUser?.id, fetchCalendarEvents]); // Runs when user ID changes or fetchCalendarEvents identity changes
     
     function getContrastColor(hexColor) {
         if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return 'var(--color-text-on-dark)';
@@ -129,14 +151,17 @@ function CalendarPage() {
         const questId = event.resource?.questId;
         const status = event.resource?.status;
         const type = event.resource?.type;
+
         if (questId && questColors[questId]) {
             backgroundColor = questColors[questId];
-        } else if (type === 'HABIT_OCCURRENCE') {
-            backgroundColor = 'var(--color-purple-mystic)';
+        } else if (type === 'HABIT_OCCURRENCE' && (!questId || !questColors[questId])) {
+            backgroundColor = 'var(--color-purple-mystic)'; // Default purple for habits without specific quest color
         }
+        
         let opacity = 0.9;
         let textDecoration = 'none';
-        let borderColor = isSelected ? 'var(--color-accent-gold-hover)' : 'var(--color-bg-elevated)';
+        let borderColor = isSelected ? 'var(--color-accent-gold-hover)' : backgroundColor; // Border same as bg or accent if selected
+
         if (status === 'COMPLETED') {
             opacity = 0.6; textDecoration = 'line-through';
             if (type === 'HABIT_OCCURRENCE') backgroundColor = 'var(--color-success-dark)';
@@ -149,15 +174,21 @@ function CalendarPage() {
             style: {
                 backgroundColor, borderRadius: '3px', opacity: opacity,
                 color: getContrastColor(backgroundColor),
-                border: `1px solid ${borderColor}`, display: 'block', padding: '3px 5px', 
-                fontSize: '0.85em', textDecoration: textDecoration,
-                boxShadow: isSelected ? '0 0 5px var(--color-accent-gold)' : 'none',
+                border: `1px solid ${borderColor}`, display: 'block', padding: '2px 5px', 
+                fontSize: '0.8em', textDecoration: textDecoration,
+                boxShadow: isSelected ? '0 0 0 1px var(--color-accent-gold)' : 'none', // Subtle selection shadow
             }
         };
     };
 
-    const handleNavigate = useCallback((newDate) => setCurrentDate(new Date(newDate)), []);
-    const handleView = useCallback((newView) => setCurrentView(newView), []);
+    const handleNavigate = useCallback((newDate) => {
+        setCurrentDate(new Date(newDate));
+    }, []);
+
+    const handleView = useCallback((newView) => {
+        setCurrentView(newView);
+    }, []);
+
     const handleSelectSlot = useCallback(({ start, end }) => {
         closeActionMenu(); setEditingScheduledMission(null);
         setSlotInfoForNewMission({ start, end }); setShowScheduledMissionForm(true);
@@ -165,40 +196,48 @@ function CalendarPage() {
 
     const handleSelectEvent = useCallback((eventData, domEvent) => {
         domEvent.preventDefault(); domEvent.stopPropagation();
-        const calendarWrapper = calendarRef.current.querySelector('.rbc-calendar') || calendarRef.current;
+        const calendarWrapper = calendarRef.current?.querySelector('.rbc-calendar') || calendarRef.current;
+        if (!calendarWrapper) return;
         const calendarRect = calendarWrapper.getBoundingClientRect();
         let x = domEvent.clientX - calendarRect.left; let y = domEvent.clientY - calendarRect.top;
+        
         const menuWidth = 180; 
-        const menuHeight = eventData.resource?.type === 'SCHEDULED_MISSION' ? 180 : 120;
-        if (x + menuWidth > calendarRect.width) x -= menuWidth;
-        if (y + menuHeight > calendarRect.height) y -= menuHeight;
+        const menuHeightEst = eventData.resource?.type === 'SCHEDULED_MISSION' ? 180 : 140; // Estimate menu height
+        if (x + menuWidth > calendarRect.width) x -= (menuWidth + 10); // Adjust to not overflow
+        if (y + menuHeightEst > calendarRect.height) y -= menuHeightEst;
+
         setActionMenu({ visible: true, x: Math.max(0, x + 5), y: Math.max(0, y + 5), event: eventData });
     }, []);
     
     const closeActionMenu = useCallback(() => setActionMenu({ visible: false, x: 0, y: 0, event: null }), []);
+    
     useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (actionMenu.visible && !event.target.closest('.event-action-menu')) closeActionMenu();
+        const handleClickOutside = (e) => {
+            if (actionMenu.visible && calendarRef.current && !calendarRef.current.contains(e.target)) {
+                if(!e.target.closest('.event-action-menu')) { // Also check if click is outside menu itself
+                    closeActionMenu();
+                }
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [actionMenu.visible, closeActionMenu]);
 
-    const handleMoveToPool = async (scheduledMission) => {
+    const handleMoveToPool = async (scheduledMissionOriginal) => {
         const token = localStorage.getItem('authToken');
         setError(null); setInfoMessage('');
         try {
             const poolMissionPayload = {
-                title: scheduledMission.title, description: scheduledMission.description,
-                energy_value: scheduledMission.energy_value, points_value: scheduledMission.points_value,
-                quest_id: scheduledMission.quest_id,
-                tag_ids: scheduledMission.tags ? scheduledMission.tags.map(t => t.id) : [],
+                title: scheduledMissionOriginal.title, description: scheduledMissionOriginal.description,
+                energy_value: scheduledMissionOriginal.energy_value, points_value: scheduledMissionOriginal.points_value,
+                quest_id: scheduledMissionOriginal.quest_id,
+                tag_ids: scheduledMissionOriginal.tags ? scheduledMissionOriginal.tags.map(t => t.id) : [],
                 focus_status: 'ACTIVE',
             };
             await axios.post(API_POOL_MISSIONS_URL, poolMissionPayload, { headers: { 'Authorization': `Bearer ${token}` } });
-            await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${scheduledMission.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
-            setInfoMessage(`"${scheduledMission.title}" moved to Mission Pool.`); clearInfoMessage();
-            await fetchCalendarEvents(true);
+            await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${scheduledMissionOriginal.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            setInfoMessage(`"${scheduledMissionOriginal.title}" moved to Mission Pool.`); clearInfoMessage();
+            await fetchCalendarEvents();
             setRefreshPoolCounter(prev => prev + 1);
             refreshUserStatsAndEnergy();
         } catch (err) { setError(err.response?.data?.error || "Failed to move mission to pool."); }
@@ -209,26 +248,27 @@ function CalendarPage() {
         const { type, original } = eventData.resource;
         const token = localStorage.getItem('authToken');
         let statusToSet = '';
+
         if (type === 'SCHEDULED_MISSION') {
             switch (action) {
                 case 'edit_scheduled_mission': setEditingScheduledMission(original); setSlotInfoForNewMission(null); setShowScheduledMissionForm(true); return;
                 case 'delete_scheduled_mission':
-                    if (window.confirm(`Delete "${original.title}"?`)) { // Simplified confirm
+                    if (window.confirm(`Delete "${original.title}"?`)) { 
                         try {
                             await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${original.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
-                            await fetchCalendarEvents(true); refreshUserStatsAndEnergy();
+                            await fetchCalendarEvents(); refreshUserStatsAndEnergy();
                         } catch (err) { setError(err.response?.data?.error || "Failed to delete mission."); }
                     } return;
                 case 'move_to_pool': await handleMoveToPool(original); return;
                 case 'complete': statusToSet = 'COMPLETED'; break;
                 case 'skip': statusToSet = 'SKIPPED'; break;
                 case 'pending': statusToSet = 'PENDING'; break;
-                default: console.warn("Unknown SM action:", action); return;
+                default: return;
             }
             if (statusToSet) {
                 try {
                     await axios.patch(`${API_SCHEDULED_MISSIONS_URL}/${original.id}/status`, { status: statusToSet }, { headers: { 'Authorization': `Bearer ${token}` } });
-                    await fetchCalendarEvents(true); refreshUserStatsAndEnergy();
+                    await fetchCalendarEvents(); refreshUserStatsAndEnergy();
                 } catch (err) { setError(err.response?.data?.error || `Failed to mark SM as ${statusToSet.toLowerCase()}.`); }
             }
         } else if (type === 'HABIT_OCCURRENCE') {
@@ -247,25 +287,25 @@ function CalendarPage() {
                         if (!habitTemplateId) { setError("Cannot extend: Template ID missing."); return; }
                         const extendResponse = await axios.post(`${API_HABIT_TEMPLATES_URL}/${habitTemplateId}/generate-occurrences`, {}, { headers: { Authorization: `Bearer ${token}` } });
                         setInfoMessage(extendResponse.data.message || `Occurrences extended.`); clearInfoMessage();
-                        await fetchCalendarEvents(true);
+                        await fetchCalendarEvents();
                     } catch (err) { setError(err.response?.data?.error || "Failed to extend habit."); } return;
-                default: console.warn("Unknown HO action:", action); return;
+                default: return;
             }
             if (statusToSet) {
                 try {
                     await axios.patch(`${API_HABIT_OCCURRENCES_URL}/${original.id}/status`, { status: statusToSet }, { headers: { 'Authorization': `Bearer ${token}` } });
-                    await fetchCalendarEvents(true); refreshUserStatsAndEnergy();
+                    await fetchCalendarEvents(); refreshUserStatsAndEnergy();
                 } catch (err) { setError(err.response?.data?.error || `Failed to update HO status.`); }
             }
         }
     };
     
-    const onEventOperation = useCallback(async (type, { event, start, end }) => { /* ... same as before, ensure await fetchCalendarEvents(true) ... */ 
+    const onEventOperation = useCallback(async (operationType, { event, start, end }) => { 
         closeActionMenu();
-        const { original } = event.resource;
         if (event.resource.type !== 'SCHEDULED_MISSION') return;
+        const { original } = event.resource;
         const token = localStorage.getItem('authToken');
-        const payload = { /* ... same as before ... */ 
+        const payload = { 
             title: original.title, description: original.description,
             energy_value: original.energy_value, points_value: original.points_value,
             status: original.status, quest_id: original.quest_id,
@@ -274,31 +314,36 @@ function CalendarPage() {
         };
         try {
             await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${original.id}`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
-            await fetchCalendarEvents(true);
+            await fetchCalendarEvents();
+            // refreshUserStatsAndEnergy(); // Reschedule doesn't change points/energy
         } catch (err) {
-            setError(err.response?.data?.error || `Failed to ${type === 'move' ? 'move' : 'resize'} event.`);
-            await fetchCalendarEvents(true);
+            setError(err.response?.data?.error || `Failed to ${operationType} event.`);
+            await fetchCalendarEvents(); // Revert to original state on error
         }
-    }, [fetchCalendarEvents]);
+    }, [fetchCalendarEvents]); // Removed refreshUserStatsAndEnergy from deps
     
-    const onEventDrop = useCallback(async (args) => { /* ... same as before, ensure await ... */ 
+    const onEventDrop = useCallback(async (args) => { 
         if (args.event.resource?.type === 'SCHEDULED_MISSION') {
              await onEventOperation('move', args);
         } else {
-            console.log("Habit occurrence drag attempt - not implemented for template modification yet.");
-            await fetchCalendarEvents(true); 
+            setInfoMessage("Habit occurrences cannot be rescheduled this way. Edit the habit definition instead.");
+            clearInfoMessage();
+            await fetchCalendarEvents(); 
         }
-    }, [onEventOperation, fetchCalendarEvents]);
+    }, [onEventOperation, fetchCalendarEvents, clearInfoMessage]);
     const onEventResize = useCallback(async (args) => await onEventOperation('resize', args), [onEventOperation]);
 
     const handleDragStartExternal = useCallback((poolMission) => setDraggedExternalMission(poolMission), []);
-    const onDropFromOutside = useCallback(async ({ start }) => { /* ... same as before, ensure await fetchCalendarEvents(true) ... */ 
+    const onDropFromOutside = useCallback(async ({ start, end }) => { 
         closeActionMenu();
         if (!draggedExternalMission) return;
         const token = localStorage.getItem('authToken');
+        
+        // Default duration of 1 hour if end is not provided by the drop
         const newScheduledMissionStart = start;
-        const newScheduledMissionEnd = new Date(start.getTime() + 60 * 60 * 1000);
-        const missionDataPayload = { /* ... same as before ... */
+        const newScheduledMissionEnd = end || new Date(start.getTime() + 60 * 60 * 1000);
+
+        const missionDataPayload = {
             title: draggedExternalMission.title, description: draggedExternalMission.description || null,
             energy_value: draggedExternalMission.energy_value, points_value: draggedExternalMission.points_value,
             start_datetime: newScheduledMissionStart.toISOString(), end_datetime: newScheduledMissionEnd.toISOString(),
@@ -309,53 +354,53 @@ function CalendarPage() {
         try {
             await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, { headers: { 'Authorization': `Bearer ${token}` } });
             await axios.delete(`${API_POOL_MISSIONS_URL}/${draggedExternalMission.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
-            await fetchCalendarEvents(true);
+            await fetchCalendarEvents();
             setRefreshPoolCounter(prev => prev + 1);
-            refreshUserStatsAndEnergy();
+            refreshUserStatsAndEnergy(); // New mission created, could have default points/energy implicitly defined by type
         } catch (err) {
             setError(err.response?.data?.error || "Failed to convert pool mission.");
         } finally {
             setDraggedExternalMission(null);
         }
     }, [draggedExternalMission, fetchCalendarEvents, refreshUserStatsAndEnergy]);
-    const dragFromOutsideItem = useCallback(() => { /* ... same as before ... */ 
+
+    const dragFromOutsideItem = useCallback(() => { 
         if (!draggedExternalMission) return null;
         return { title: `(Pool) ${draggedExternalMission.title}`, start: new Date(), end: new Date(new Date().getTime() + 60 * 60 * 1000) };
     }, [draggedExternalMission]);
-    const customOnDragOver = useCallback((dragEvent) => { /* ... same as before ... */ 
+
+    const customOnDragOver = useCallback((dragEvent) => { 
         if (draggedExternalMission) dragEvent.preventDefault();
     }, [draggedExternalMission]);
 
-    const handleScheduledMissionFormSubmit = async (isConversionSuccess = false) => { /* ... same as before, ensure await fetchCalendarEvents(true) ... */ 
+    const handleScheduledMissionFormSubmit = async (isConversionSuccess = false) => { 
         setShowScheduledMissionForm(false); setEditingScheduledMission(null); setSlotInfoForNewMission(null);
-        await fetchCalendarEvents(true);
+        await fetchCalendarEvents();
         if(isConversionSuccess) setRefreshPoolCounter(prev => prev + 1);
         refreshUserStatsAndEnergy();
     };
-    const handleHabitTemplateFormSubmit = async () => { /* ... same as before, ensure await fetchCalendarEvents(true) ... */ 
+    const handleHabitTemplateFormSubmit = async () => { 
         setShowHabitTemplateForm(false); setEditingHabitTemplate(null);
-        await fetchCalendarEvents(true); 
+        await fetchCalendarEvents(); 
         refreshUserStatsAndEnergy(); 
         setInfoMessage("Habit definition updated. Future occurrences regenerated."); clearInfoMessage();
     };
 
-    // Pool Mission Sidebar Action Handlers
     const handleEditPoolMissionFromSidebar = (mission) => {
         setEditingPoolMission(mission);
         setShowPoolMissionForm(true);
     };
-    const handleDeletePoolMissionRequestFromSidebar = (mission) => { // Renamed to avoid conflict
+    const handleDeletePoolMissionRequestFromSidebar = (mission) => { 
         setPoolMissionToDelete(mission);
         setShowPoolDeleteConfirm(true);
     };
-    const handleConfirmDeletePoolMissionFromSidebar = async () => { // Renamed to avoid conflict
+    const handleConfirmDeletePoolMissionFromSidebar = async () => { 
         if (!poolMissionToDelete) return;
         const token = localStorage.getItem('authToken'); setError(null);
         try {
             await axios.delete(`${API_POOL_MISSIONS_URL}/${poolMissionToDelete.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
             setRefreshPoolCounter(prev => prev + 1);
-            // fetchCalendarEvents(true); // Not strictly needed if pool is separate
-            refreshUserStatsAndEnergy();
+            refreshUserStatsAndEnergy(); // Deleting pool mission might affect stats if it was completed (though unlikely from this UI path)
         } catch (err) { setError(err.response?.data?.error || "Failed to delete pool mission.");
         } finally { setShowPoolDeleteConfirm(false); setPoolMissionToDelete(null); }
     };
@@ -369,7 +414,7 @@ function CalendarPage() {
     const handleTogglePoolCompleteSidebar = async (mission, newStatus) => {
         const token = localStorage.getItem('authToken'); setError(null);
         try {
-            const payload = { /* ... construct full payload for PUT ... */ 
+            const payload = { 
                 title: mission.title, description: mission.description,
                 energy_value: mission.energy_value, points_value: mission.points_value,
                 quest_id: mission.quest_id,
@@ -378,7 +423,6 @@ function CalendarPage() {
             };
             const response = await axios.put(`${API_POOL_MISSIONS_URL}/${mission.id}`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
             setRefreshPoolCounter(prev => prev + 1);
-            // fetchCalendarEvents(true); // If completing a pool mission affects calendar directly
             if (response.data && (response.data.user_total_points !== undefined || response.data.user_level !== undefined)) {
                 refreshUserStatsAndEnergy({ total_points: response.data.user_total_points, level: response.data.user_level });
             } else { refreshUserStatsAndEnergy(); }
@@ -407,14 +451,14 @@ function CalendarPage() {
                     <DragAndDropCalendar
                         localizer={localizer}
                         events={events}
-                        date={currentDate}
-                        view={currentView}
+                        date={currentDate} // Controlled
+                        view={currentView}   // Controlled
                         onNavigate={handleNavigate}
                         onView={handleView}
                         startAccessor="start"
                         endAccessor="end"
-                        className="rbc-calendar-container"
-                        views={[Views.MONTH, Views.WEEK, Views.DAY]} // Agenda removed
+                        className="rbc-calendar-container" // For specific styling if needed
+                        views={[Views.MONTH, Views.WEEK, Views.DAY]}
                         selectable
                         onSelectSlot={handleSelectSlot}
                         onSelectEvent={handleSelectEvent}
@@ -428,9 +472,10 @@ function CalendarPage() {
                         onDragOver={customOnDragOver}
                         step={30}
                         timeslots={2}
-                        popup
+                        popup // For "+X more" link
                         scrollToTime={scrollToTime}
-                        culture='en-GB'
+                        culture='en-GB' // For Monday start, etc.
+                        messages={{ today: "Today", previous: "Back", next: "Next", month: "Month", week: "Week", day: "Day", agenda: "Agenda", showMore: total => `+${total} more` }}
                     />
                     {actionMenu.visible && actionMenu.event && (
                         <EventActionMenu
@@ -442,6 +487,7 @@ function CalendarPage() {
             </div>
             <CalendarMissionPool 
                 onDragStartPoolMission={handleDragStartExternal} 
+                activeTagFilters={currentUser?.settings?.calendarTagFilters || []} // Placeholder for global tag filters
                 refreshTrigger={refreshPoolCounter}
                 onEditMissionInSidebar={handleEditPoolMissionFromSidebar}
                 onDeleteMissionInSidebar={handleDeletePoolMissionRequestFromSidebar}
@@ -449,7 +495,7 @@ function CalendarPage() {
                 onToggleCompleteInSidebar={handleTogglePoolCompleteSidebar}
             />
 
-            {showScheduledMissionForm && ( /* Modal for ScheduledMissionForm */
+            {showScheduledMissionForm && (
                 <div className="dialog-overlay">
                     <div className="dialog-content" style={{maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
                         <ScheduledMissionForm
@@ -460,7 +506,7 @@ function CalendarPage() {
                     </div>
                 </div>
             )}
-            {showHabitTemplateForm && editingHabitTemplate && ( /* Modal for HabitTemplateForm */
+            {showHabitTemplateForm && editingHabitTemplate && (
                  <div className="dialog-overlay">
                     <div className="dialog-content" style={{maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
                         <HabitTemplateForm
@@ -471,7 +517,7 @@ function CalendarPage() {
                     </div>
                 </div>
             )}
-            {showPoolMissionForm && editingPoolMission && ( /* Modal for PoolMissionForm from Sidebar */
+            {showPoolMissionForm && editingPoolMission && (
                  <div className="dialog-overlay">
                     <div className="dialog-content" style={{maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
                         <PoolMissionForm
@@ -482,7 +528,7 @@ function CalendarPage() {
                     </div>
                 </div>
             )}
-            {showPoolDeleteConfirm && poolMissionToDelete && ( /* Confirmation for Pool Mission Delete from Sidebar */
+            {showPoolDeleteConfirm && poolMissionToDelete && (
                 <ConfirmationDialog
                     message={`Are you sure you want to delete the pool mission "${poolMissionToDelete.title}"?`}
                     onConfirm={handleConfirmDeletePoolMissionFromSidebar}
