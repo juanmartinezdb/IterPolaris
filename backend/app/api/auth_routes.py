@@ -57,7 +57,7 @@ def register():
         db.session.add(default_quest)
 
         # PRD: "Base tags can be auto-created on registration."
-        default_tags_names = ["Urgent", "Important", "Personal", "Work", "Quick Win", "Study", "Health"]       
+        default_tags_names = ["Trabajo", "Salud", "Personal", "Estudios", "Hobbies", "Importante", "Social", "Domésticas", "secundaria"]       
         for tag_name in default_tags_names:
             if not Tag.query.filter_by(user_id=new_user.id, name=tag_name).first(): # Evitar duplicados si algo falla y se reintenta
                 default_tag = Tag(user_id=new_user.id, name=tag_name)
