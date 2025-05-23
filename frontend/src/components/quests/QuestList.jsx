@@ -1,8 +1,7 @@
+// frontend/src/components/quests/QuestList.jsx
 import React from 'react';
-import '../../styles/quests.css'; // Asegúrate que los estilos para quest-item, etc., estén aquí
-
-// Podríamos crear QuestItem como un sub-componente si se vuelve muy complejo,
-// pero por ahora lo mantenemos dentro de QuestList para simplicidad.
+import { getContrastColor } from '../../utils/colorUtils'; // Import a la utilidad
+import '../../styles/quests.css';
 
 function QuestList({ quests, onEditQuest, onDeleteQuest }) {
     if (!quests || quests.length === 0) {
@@ -15,10 +14,12 @@ function QuestList({ quests, onEditQuest, onDeleteQuest }) {
                 <li 
                     key={quest.id} 
                     className="quest-item" 
-                    style={{ borderLeftColor: quest.color || 'var(--color-accent-gold)' }} // Color del borde izquierdo
+                    style={{ borderLeftColor: quest.color || 'var(--color-accent-gold)' }}
                 >
                     <div className="quest-info">
-                        <h4 className="quest-name">
+                        <h4 className="quest-name" style={{ color: getContrastColor(quest.color) === 'var(--color-text-on-accent, #0A192F)' ? 'var(--color-text-on-dark, #EAEAEA)' : 'var(--color-text-on-dark, #EAEAEA)' }}> 
+                            {/* Simplified logic for name color, primary text color should be fine for most quest colors */}
+                            {/* For very light quest colors, specific darker text might be needed, but this is a general approach */}
                             {quest.name}
                             {quest.is_default_quest && (
                                 <span className="quest-default-badge">DEFAULT</span>
@@ -35,7 +36,7 @@ function QuestList({ quests, onEditQuest, onDeleteQuest }) {
                         >
                             Edit
                         </button>
-                        {!quest.is_default_quest && ( // No mostrar botón de eliminar para la Quest por defecto
+                        {!quest.is_default_quest && ( 
                             <button 
                                 onClick={() => onDeleteQuest(quest)}
                                 className="delete-btn"

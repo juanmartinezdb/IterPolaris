@@ -17,6 +17,7 @@ import EventActionMenu from '../components/calendar/EventActionMenu';
 import HabitTemplateForm from '../components/habits/HabitTemplateForm';
 import PoolMissionForm from '../components/missions/pool/PoolMissionForm';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
+import { getContrastColor } from '../utils/colorUtils'; // Importar la utilidad
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
@@ -26,7 +27,7 @@ import '../styles/dialog.css';
 const locales = { 'en-US': enUS, 'en-GB': enGB };
 const localizer = dateFnsLocalizer({
     format, parse,
-    startOfWeek: (date) => startOfWeek(date, { locale: locales['en-GB'] }), // Week starts on Monday
+    startOfWeek: (date) => startOfWeek(date, { locale: locales['en-GB'] }),
     getDay, locales,
 });
 const DragAndDropCalendar = withDragAndDrop(Calendar);
@@ -45,7 +46,6 @@ function CalendarPage() {
     const [infoMessage, setInfoMessage] = useState('');
     const [questColors, setQuestColors] = useState({});
     
-    // Initialize view and date from localStorage or defaults
     const [currentView, setCurrentView] = useState(() => {
         return localStorage.getItem('calendarLastView') || Views.WEEK;
     });
@@ -76,7 +76,6 @@ function CalendarPage() {
         setTimeout(() => setInfoMessage(''), 4000);
     },[]);
 
-    // Save view and date to localStorage whenever they change due to user navigation
     useEffect(() => {
         localStorage.setItem('calendarLastView', currentView);
     }, [currentView]);
@@ -126,7 +125,7 @@ function CalendarPage() {
         } finally {
             setIsLoadingEvents(false);
         }
-    }, [currentUser?.id]); // Depend on currentUser.id
+    }, [currentUser?.id]); 
 
     useEffect(() => { fetchQuestColors(); }, [fetchQuestColors]);
     
@@ -136,17 +135,9 @@ function CalendarPage() {
         } else {
             setEvents([]);
         }
-    }, [currentUser?.id, fetchCalendarEvents]); // Runs when user ID changes or fetchCalendarEvents identity changes
+    }, [currentUser?.id, fetchCalendarEvents]); 
     
-    function getContrastColor(hexColor) {
-        if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return 'var(--color-text-on-dark)';
-        try {
-            const r = parseInt(hexColor.slice(1, 3), 16), g = parseInt(hexColor.slice(3, 5), 16), b = parseInt(hexColor.slice(5, 7), 16);
-            return (((r * 299) + (g * 587) + (b * 114)) / 1000) >= 128 ? 'var(--color-text-on-accent)' : 'var(--color-text-on-dark)';
-        } catch (e) { return 'var(--color-text-on-dark)'; }
-    }
-
-    const eventStyleGetter = (event, start, end, isSelected) => {
+    const eventStyleGetter = useCallback((event, start, end, isSelected) => {
         let backgroundColor = 'var(--color-accent-secondary)';
         const questId = event.resource?.questId;
         const status = event.resource?.status;
@@ -155,12 +146,12 @@ function CalendarPage() {
         if (questId && questColors[questId]) {
             backgroundColor = questColors[questId];
         } else if (type === 'HABIT_OCCURRENCE' && (!questId || !questColors[questId])) {
-            backgroundColor = 'var(--color-purple-mystic)'; // Default purple for habits without specific quest color
+            backgroundColor = 'var(--color-purple-mystic)';
         }
         
         let opacity = 0.9;
         let textDecoration = 'none';
-        let borderColor = isSelected ? 'var(--color-accent-gold-hover)' : backgroundColor; // Border same as bg or accent if selected
+        let borderColor = isSelected ? 'var(--color-accent-gold-hover)' : backgroundColor;
 
         if (status === 'COMPLETED') {
             opacity = 0.6; textDecoration = 'line-through';
@@ -176,10 +167,10 @@ function CalendarPage() {
                 color: getContrastColor(backgroundColor),
                 border: `1px solid ${borderColor}`, display: 'block', padding: '2px 5px', 
                 fontSize: '0.8em', textDecoration: textDecoration,
-                boxShadow: isSelected ? '0 0 0 1px var(--color-accent-gold)' : 'none', // Subtle selection shadow
+                boxShadow: isSelected ? '0 0 0 1px var(--color-accent-gold)' : 'none',
             }
         };
-    };
+    }, [questColors]); // Add questColors to dependency array
 
     const handleNavigate = useCallback((newDate) => {
         setCurrentDate(new Date(newDate));
@@ -192,7 +183,7 @@ function CalendarPage() {
     const handleSelectSlot = useCallback(({ start, end }) => {
         closeActionMenu(); setEditingScheduledMission(null);
         setSlotInfoForNewMission({ start, end }); setShowScheduledMissionForm(true);
-    }, []);
+    }, [closeActionMenu]); // Added closeActionMenu to dependencies
 
     const handleSelectEvent = useCallback((eventData, domEvent) => {
         domEvent.preventDefault(); domEvent.stopPropagation();
@@ -202,19 +193,19 @@ function CalendarPage() {
         let x = domEvent.clientX - calendarRect.left; let y = domEvent.clientY - calendarRect.top;
         
         const menuWidth = 180; 
-        const menuHeightEst = eventData.resource?.type === 'SCHEDULED_MISSION' ? 180 : 140; // Estimate menu height
-        if (x + menuWidth > calendarRect.width) x -= (menuWidth + 10); // Adjust to not overflow
+        const menuHeightEst = eventData.resource?.type === 'SCHEDULED_MISSION' ? 180 : 140; 
+        if (x + menuWidth > calendarRect.width) x -= (menuWidth + 10); 
         if (y + menuHeightEst > calendarRect.height) y -= menuHeightEst;
 
         setActionMenu({ visible: true, x: Math.max(0, x + 5), y: Math.max(0, y + 5), event: eventData });
-    }, []);
+    }, []); 
     
     const closeActionMenu = useCallback(() => setActionMenu({ visible: false, x: 0, y: 0, event: null }), []);
     
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (actionMenu.visible && calendarRef.current && !calendarRef.current.contains(e.target)) {
-                if(!e.target.closest('.event-action-menu')) { // Also check if click is outside menu itself
+                if(!e.target.closest('.event-action-menu')) { 
                     closeActionMenu();
                 }
             }
@@ -315,12 +306,11 @@ function CalendarPage() {
         try {
             await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${original.id}`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
             await fetchCalendarEvents();
-            // refreshUserStatsAndEnergy(); // Reschedule doesn't change points/energy
         } catch (err) {
             setError(err.response?.data?.error || `Failed to ${operationType} event.`);
-            await fetchCalendarEvents(); // Revert to original state on error
+            await fetchCalendarEvents(); 
         }
-    }, [fetchCalendarEvents]); // Removed refreshUserStatsAndEnergy from deps
+    }, [fetchCalendarEvents, closeActionMenu]); 
     
     const onEventDrop = useCallback(async (args) => { 
         if (args.event.resource?.type === 'SCHEDULED_MISSION') {
@@ -339,7 +329,6 @@ function CalendarPage() {
         if (!draggedExternalMission) return;
         const token = localStorage.getItem('authToken');
         
-        // Default duration of 1 hour if end is not provided by the drop
         const newScheduledMissionStart = start;
         const newScheduledMissionEnd = end || new Date(start.getTime() + 60 * 60 * 1000);
 
@@ -356,13 +345,13 @@ function CalendarPage() {
             await axios.delete(`${API_POOL_MISSIONS_URL}/${draggedExternalMission.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
             await fetchCalendarEvents();
             setRefreshPoolCounter(prev => prev + 1);
-            refreshUserStatsAndEnergy(); // New mission created, could have default points/energy implicitly defined by type
+            refreshUserStatsAndEnergy(); 
         } catch (err) {
             setError(err.response?.data?.error || "Failed to convert pool mission.");
         } finally {
             setDraggedExternalMission(null);
         }
-    }, [draggedExternalMission, fetchCalendarEvents, refreshUserStatsAndEnergy]);
+    }, [draggedExternalMission, fetchCalendarEvents, refreshUserStatsAndEnergy, closeActionMenu]);
 
     const dragFromOutsideItem = useCallback(() => { 
         if (!draggedExternalMission) return null;
@@ -400,7 +389,7 @@ function CalendarPage() {
         try {
             await axios.delete(`${API_POOL_MISSIONS_URL}/${poolMissionToDelete.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
             setRefreshPoolCounter(prev => prev + 1);
-            refreshUserStatsAndEnergy(); // Deleting pool mission might affect stats if it was completed (though unlikely from this UI path)
+            refreshUserStatsAndEnergy(); 
         } catch (err) { setError(err.response?.data?.error || "Failed to delete pool mission.");
         } finally { setShowPoolDeleteConfirm(false); setPoolMissionToDelete(null); }
     };
@@ -451,13 +440,13 @@ function CalendarPage() {
                     <DragAndDropCalendar
                         localizer={localizer}
                         events={events}
-                        date={currentDate} // Controlled
-                        view={currentView}   // Controlled
+                        date={currentDate} 
+                        view={currentView}   
                         onNavigate={handleNavigate}
                         onView={handleView}
                         startAccessor="start"
                         endAccessor="end"
-                        className="rbc-calendar-container" // For specific styling if needed
+                        className="rbc-calendar-container" 
                         views={[Views.MONTH, Views.WEEK, Views.DAY]}
                         selectable
                         onSelectSlot={handleSelectSlot}
@@ -472,9 +461,9 @@ function CalendarPage() {
                         onDragOver={customOnDragOver}
                         step={30}
                         timeslots={2}
-                        popup // For "+X more" link
+                        popup 
                         scrollToTime={scrollToTime}
-                        culture='en-GB' // For Monday start, etc.
+                        culture='en-GB' 
                         messages={{ today: "Today", previous: "Back", next: "Next", month: "Month", week: "Week", day: "Day", agenda: "Agenda", showMore: total => `+${total} more` }}
                     />
                     {actionMenu.visible && actionMenu.event && (
@@ -487,7 +476,7 @@ function CalendarPage() {
             </div>
             <CalendarMissionPool 
                 onDragStartPoolMission={handleDragStartExternal} 
-                activeTagFilters={currentUser?.settings?.calendarTagFilters || []} // Placeholder for global tag filters
+                activeTagFilters={currentUser?.settings?.calendarTagFilters || []} 
                 refreshTrigger={refreshPoolCounter}
                 onEditMissionInSidebar={handleEditPoolMissionFromSidebar}
                 onDeleteMissionInSidebar={handleDeletePoolMissionRequestFromSidebar}

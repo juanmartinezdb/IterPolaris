@@ -1,19 +1,7 @@
 // frontend/src/components/habits/HabitOccurrenceItem.jsx
 import React from 'react';
-import '../../styles/habits.css'; // Asegúrate que los estilos necesarios estén aquí
-
-// Helper para getContrastColor (debe estar disponible)
-function getContrastColor(hexColor) {
-    if (!hexColor || typeof hexColor !== 'string' || hexColor.length < 4) return 'var(--color-text-on-dark, #EAEAEA)';
-    let r, g, b;
-    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hexColor = hexColor.replace(shorthandRegex, (m, rVal, gVal, bVal) => '#' + rVal + rVal + gVal + gVal + bVal + bVal);
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexColor);
-    if (!result) return 'var(--color-text-on-dark, #EAEAEA)';
-    [r, g, b] = result.slice(1).map(x => parseInt(x, 16));
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 128) ? '#0A192F' : '#EAEAEA';
-}
+import { getContrastColor } from '../../utils/colorUtils'; // Import a la utilidad
+import '../../styles/habits.css';
 
 const formatTimeForDisplay = (isoString) => {
     if (!isoString) return 'N/A';
@@ -26,10 +14,11 @@ const formatTimeForDisplay = (isoString) => {
 
 function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
     
-    // Clave para el color:
-    let questColor = 'var(--color-accent-gold)'; // Color por defecto si no se encuentra la quest
+    let questColor = 'var(--color-accent-gold)'; 
     if (occurrence.quest_id && questColors && questColors[occurrence.quest_id]) {
         questColor = questColors[occurrence.quest_id];
+    } else if (!occurrence.quest_id) { // Default color for habits without a specific quest
+        questColor = 'var(--color-purple-mystic, #6D21A9)';
     }
     
     const textColorForQuestBadge = getContrastColor(questColor);
@@ -49,7 +38,7 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
     return (
         <li 
             className={`habit-occurrence-item status-${occurrence.status}`}
-            style={{ borderLeftColor: questColor }} // Aquí se aplica el color de la Quest
+            style={{ borderLeftColor: questColor }}
         >
             <div className="habit-occurrence-main">
                 <div className="habit-occurrence-info">
@@ -76,11 +65,13 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
                         className={`status-btn complete ${occurrence.status === 'COMPLETED' ? 'active' : ''}`}
                         onClick={() => handleStatusClick('COMPLETED')}
                         title={occurrence.status === 'COMPLETED' ? "Mark Pending" : "Mark Completed"}
+                        aria-label={occurrence.status === 'COMPLETED' ? `Mark ${occurrence.title} as pending` : `Mark ${occurrence.title} as completed`}
                     >✓</button>
                     <button 
                         className={`status-btn skip ${occurrence.status === 'SKIPPED' ? 'active' : ''}`}
                         onClick={() => handleStatusClick('SKIPPED')}
                         title={occurrence.status === 'SKIPPED' ? "Mark Pending" : "Mark Skipped"}
+                        aria-label={occurrence.status === 'SKIPPED' ? `Mark ${occurrence.title} as pending` : `Mark ${occurrence.title} as skipped`}
                     >✕</button>
                 </div>
             </div>

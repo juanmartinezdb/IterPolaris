@@ -1,30 +1,8 @@
 // frontend/src/components/missions/scheduled/ScheduledMissionItem.jsx
 import React from 'react';
-import '../../../styles/scheduledmissions.css'; // Styles for this component
+import { getContrastColor } from '../../../utils/colorUtils'; // Import a la utilidad
+import '../../../styles/scheduledmissions.css'; 
 
-// Assuming getContrastColor is available (e.g., from a utils file or defined here)
-// For simplicity, including it here for now. In a real app, put it in a utils file.
-function getContrastColor(hexColor) {
-    if (!hexColor || typeof hexColor !== 'string' || hexColor.length < 4) {
-        return 'var(--color-text-on-dark, #EAEAEA)';
-    }
-    let r, g, b;
-    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hexColor = hexColor.replace(shorthandRegex, (m, rVal, gVal, bVal) => {
-        return '#' + rVal + rVal + gVal + gVal + bVal + bVal;
-    });
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexColor);
-    if (!result) {
-        return 'var(--color-text-on-dark, #EAEAEA)';
-    }
-    r = parseInt(result[1], 16);
-    g = parseInt(result[2], 16);
-    b = parseInt(result[3], 16);
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 128) ? '#0A192F' : '#EAEAEA';
-}
-
-// Helper to format date for display
 const formatDateForDisplay = (isoString) => {
     if (!isoString) return 'N/A';
     try {
@@ -47,7 +25,7 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
     const textColorForQuestBadge = getContrastColor(questColor);
 
     const handleStatusUpdate = (newStatus) => {
-        if (mission.status === newStatus) return; // Avoid redundant updates
+        if (mission.status === newStatus) return; 
         onUpdateStatus(mission, newStatus);
     };
 
@@ -106,13 +84,15 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
                             onClick={() => handleStatusUpdate('COMPLETED')} 
                             className="action-icon complete-btn"
                             title="Mark as Complete"
+                            aria-label={`Mark ${mission.title} as complete`}
                         >
                            Complete
                         </button>
                         <button 
                             onClick={() => handleStatusUpdate('SKIPPED')} 
-                            className="action-icon skip-btn" // Add style for skip-btn if needed
+                            className="action-icon skip-btn" 
                             title="Mark as Skipped"
+                            aria-label={`Mark ${mission.title} as skipped`}
                         >
                            Skip
                         </button>
@@ -123,6 +103,7 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
                         onClick={() => handleStatusUpdate('PENDING')} 
                         className="action-icon"
                         title="Mark as Pending"
+                        aria-label={`Mark ${mission.title} as pending`}
                     >
                        Undo
                     </button>
@@ -132,10 +113,16 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
                     className="action-icon" 
                     title="Edit Mission"
                     disabled={mission.status === 'COMPLETED' || mission.status === 'SKIPPED'}
+                    aria-label={`Edit ${mission.title}`}
                 >
                     Edit
                 </button>
-                <button onClick={() => onDelete(mission)} className="action-icon delete-btn" title="Delete Mission">
+                <button 
+                    onClick={() => onDelete(mission)} 
+                    className="action-icon delete-btn" 
+                    title="Delete Mission"
+                    aria-label={`Delete ${mission.title}`}
+                >
                     Delete
                 </button>
             </div>

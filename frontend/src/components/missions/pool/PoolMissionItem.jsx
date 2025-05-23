@@ -1,25 +1,9 @@
 // frontend/src/components/missions/pool/PoolMissionItem.jsx
 import React from 'react';
+import { getContrastColor } from '../../../utils/colorUtils'; // Importar la utilidad
 import '../../../styles/poolmissions.css';
 
-function getContrastColor(hexColor) {
-    if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) {
-        return 'var(--color-text-on-dark, #EAEAEA)'; 
-    }
-    let r, g, b;
-    const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-    hexColor = hexColor.replace(shorthandRegex, (m, rVal, gVal, bVal) => {
-        return '#' + rVal + rVal + gVal + gVal + bVal + bVal;
-    });
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexColor);
-    if (!result) return 'var(--color-text-on-dark, #EAEAEA)';
-    r = parseInt(result[1], 16); g = parseInt(result[2], 16); b = parseInt(result[3], 16);
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 128) ? '#0A192F' : '#EAEAEA'; 
-}
 
-// Props expected: mission, questColors, onDragStart
-// For actions: onEdit, onDelete, onToggleFocus, onToggleComplete
 function PoolMissionItem({ 
     mission, 
     questColors = {}, 
@@ -31,20 +15,16 @@ function PoolMissionItem({
 }) {
     
     const handleCompleteToggle = () => {
-        if (onToggleComplete) { // Check if the function is provided
+        if (onToggleComplete) { 
             const newStatus = mission.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
             onToggleComplete(mission, newStatus);
-        } else {
-            console.error("PoolMissionItem: onToggleComplete prop is not defined");
         }
     };
 
     const handleFocusToggle = () => {
-        if (onToggleFocus) { // Check if the function is provided
+        if (onToggleFocus) { 
             const newFocusStatus = mission.focus_status === 'ACTIVE' ? 'DEFERRED' : 'ACTIVE';
             onToggleFocus(mission, newFocusStatus);
-        } else {
-            console.error("PoolMissionItem: onToggleFocus prop is not defined");
         }
     };
 
@@ -55,7 +35,7 @@ function PoolMissionItem({
         if (onDragStart && mission.status === 'PENDING') {
             onDragStart(mission); 
         } else if (mission.status !== 'PENDING') {
-            e.preventDefault(); // Prevent dragging completed missions
+            e.preventDefault(); 
         }
     };
 
@@ -112,6 +92,7 @@ function PoolMissionItem({
                     onClick={handleCompleteToggle} 
                     className="action-icon complete-btn"
                     title={mission.status === 'COMPLETED' ? "Mark as Pending" : "Mark as Complete"}
+                    aria-label={mission.status === 'COMPLETED' ? `Mark ${mission.title} as pending` : `Mark ${mission.title} as complete`}
                 >
                    {mission.status === 'COMPLETED' ? 'Undo' : 'Complete'}
                 </button>
@@ -120,6 +101,7 @@ function PoolMissionItem({
                     className="action-icon" 
                     title={`Set as ${mission.focus_status === 'ACTIVE' ? 'Deferred' : 'Active'}`}
                     disabled={mission.status === 'COMPLETED'}
+                    aria-label={mission.focus_status === 'ACTIVE' ? `Set ${mission.title} as deferred` : `Set ${mission.title} as active`}
                 >
                     {mission.focus_status === 'ACTIVE' ? 'Defer' : 'Activate'}
                 </button>
@@ -128,6 +110,7 @@ function PoolMissionItem({
                     className="action-icon" 
                     title="Edit Mission" 
                     disabled={mission.status === 'COMPLETED'}
+                    aria-label={`Edit ${mission.title}`}
                 >
                     Edit
                 </button>
@@ -135,6 +118,7 @@ function PoolMissionItem({
                     onClick={() => onDelete ? onDelete(mission) : console.error("onDelete not provided to PoolMissionItem")} 
                     className="action-icon delete-btn" 
                     title="Delete Mission"
+                    aria-label={`Delete ${mission.title}`}
                 >
                     Delete
                 </button>
