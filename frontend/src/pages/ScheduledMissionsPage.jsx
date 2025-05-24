@@ -6,32 +6,33 @@ import ScheduledMissionList from '../components/missions/scheduled/ScheduledMiss
 import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
 import QuestSelector from '../components/quests/QuestSelector';
+import Modal from '../components/common/Modal'; // Importar Modal
 import '../styles/scheduledmissions.css';
-import '../styles/dialog.css'; 
+// Dialog.css ya no es necesario aquí si Modal lo maneja o está global.
 
 const API_SCHEDULED_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/scheduled-missions`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-function ScheduledMissionsPage() {
+function ScheduledMissionsPage({ activeTagFilters }) { // Aceptar activeTagFilters
     const [missions, setMissions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [showForm, setShowForm] = useState(false);
+    const [showFormModal, setShowFormModal] = useState(false); // Renombrado para claridad
     const [editingMission, setEditingMission] = useState(null);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [missionToDelete, setMissionToDelete] = useState(null);
     const [questColors, setQuestColors] = useState({});
 
     const [filterQuestId, setFilterQuestId] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
+    const [filterStatus, setFilterStatus] = useState(''); // 'ALL', 'PENDING', 'COMPLETED', 'SKIPPED'
     const [filterStartDate, setFilterStartDate] = useState('');
     const [filterEndDate, setFilterEndDate] = useState('');
 
-    const { refreshUserStatsAndEnergy } = useContext(UserContext); 
+    const { currentUser, refreshUserStatsAndEnergy } = useContext(UserContext); 
 
     const fetchQuestColors = useCallback(async () => {
+        if (!currentUser) return;
         const token = localStorage.getItem('authToken');
-        if (!token) return;
         try {
             const response = await axios.get(API_QUESTS_URL, {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -44,23 +45,24 @@ function ScheduledMissionsPage() {
         } catch (err) {
             console.error("ScheduledMissionsPage: Failed to fetch quests for colors:", err);
         }
-    }, []);
+    }, [currentUser]);
     
     const fetchScheduledMissions = useCallback(async () => {
+        if (!currentUser) { setMissions([]); return; }
         setIsLoading(true);
         setError(null);
         const token = localStorage.getItem('authToken');
-        if (!token) {
-            setIsLoading(false);
-            setMissions([]);
-            return;
-        }
         
         const params = new URLSearchParams();
         if (filterQuestId) params.append('quest_id', filterQuestId);
-        if (filterStatus) params.append('status', filterStatus);
+        if (filterStatus && filterStatus !== "ALL") params.append('status', filterStatus); // No enviar si es "ALL"
         if (filterStartDate) params.append('filter_start_date', filterStartDate);
         if (filterEndDate) params.append('filter_end_date', filterEndDate);
+
+        // Aplicar filtros de tags globales
+        if (activeTagFilters && activeTagFilters.length > 0) {
+            activeTagFilters.forEach(tagId => params.append('tags', tagId));
+        }
 
         try {
             const response = await axios.get(API_SCHEDULED_MISSIONS_URL, {
@@ -75,7 +77,7 @@ function ScheduledMissionsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [filterQuestId, filterStatus, filterStartDate, filterEndDate]);
+    }, [currentUser, filterQuestId, filterStatus, filterStartDate, filterEndDate, activeTagFilters]); // Añadir activeTagFilters
 
     useEffect(() => {
         fetchQuestColors();
@@ -83,18 +85,18 @@ function ScheduledMissionsPage() {
 
     useEffect(() => {
         fetchScheduledMissions();
-    }, [fetchScheduledMissions]);
+    }, [fetchScheduledMissions]); // Depende de fetchScheduledMissions que ahora incluye activeTagFilters
 
     const handleOpenCreateForm = () => {
         setEditingMission(null);
-        setShowForm(true);
+        setShowFormModal(true);
     };
     const handleOpenEditForm = (mission) => {
         setEditingMission(mission);
-        setShowForm(true);
+        setShowFormModal(true);
     };
     const handleFormClose = () => {
-        setShowForm(false);
+        setShowFormModal(false);
         setEditingMission(null);
     };
     const handleFormSubmit = (updatedMissionDataFromBackend) => { 
@@ -165,28 +167,13 @@ function ScheduledMissionsPage() {
         }
     };
     
-    const renderModal = () => {
-        if (!showForm) return null;
-        return (
-            <div className="dialog-overlay">
-                 <div className="dialog-content" style={{maxWidth: '650px', maxHeight: '90vh', overflowY: 'auto', textAlign: 'left'}}>
-                    <ScheduledMissionForm
-                        missionToEdit={editingMission}
-                        onFormSubmit={handleFormSubmit} 
-                        onCancel={handleFormClose}
-                    />
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="scheduled-missions-page-container">
             <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
                 <h2>Scheduled Missions</h2>
                 <button 
                     onClick={handleOpenCreateForm} 
-                    className="add-scheduled-mission-button"
+                    className="add-scheduled-mission-button" // Reutiliza la clase del botón de Quest/Tag
                     style={{margin: 0}} 
                 >
                     + Schedule Mission
@@ -206,7 +193,7 @@ function ScheduledMissionsPage() {
                 <div className="filter-group">
                     <label htmlFor="filter-sm-status">Filter by Status:</label>
                     <select id="filter-sm-status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} disabled={isLoading}>
-                        <option value="">All Statuses</option>
+                        <option value="ALL">All Statuses</option> {/* Opción para ver todas */}
                         <option value="PENDING">Pending</option>
                         <option value="COMPLETED">Completed</option>
                         <option value="SKIPPED">Skipped</option>
@@ -223,7 +210,7 @@ function ScheduledMissionsPage() {
             </div>
             
             {isLoading && missions.length === 0 && <p style={{textAlign: 'center'}}>Loading scheduled missions...</p>}
-            {error && <p className="error-message" style={{textAlign: 'center'}}>{error}</p>}
+            {error && <p className="auth-error-message" style={{textAlign: 'center'}}>{error}</p>} {/* auth-error-message para consistencia */}
 
             {!isLoading && !error && (
                 <ScheduledMissionList
@@ -235,7 +222,19 @@ function ScheduledMissionsPage() {
                 />
             )}
             
-            {renderModal()}
+            {showFormModal && (
+                <Modal 
+                    title={editingMission ? "Edit Scheduled Mission" : "Create Scheduled Mission"}
+                    onClose={handleFormClose}
+                >
+                    <ScheduledMissionForm
+                        missionToEdit={editingMission}
+                        onFormSubmit={handleFormSubmit} 
+                        onCancel={handleFormClose}
+                        // slotInfo no se pasa aquí ya que es para creación desde la lista, no desde un slot de calendario
+                    />
+                </Modal>
+            )}
 
             {showConfirmDialog && missionToDelete && (
                 <ConfirmationDialog

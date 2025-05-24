@@ -1,37 +1,39 @@
 // frontend/src/App.jsx
-import React, { useContext, useEffect } from 'react'; // useEffect añadido
+import React, { useContext, useEffect, useState } from 'react';
 import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 
-import { UserContext } from './contexts/UserContext'; 
+import { UserContext } from './contexts/UserContext';
 
+// Import Layout Components
+import TopBar from './components/layout/TopBar';
+import LeftSidebar from './components/layout/LeftSidebar';
+import MainContentArea from './components/layout/MainContentArea';
+
+// Import Pages and Auth components
 import RegistrationForm from './components/auth/RegistrationForm';
 import LoginForm from './components/auth/LoginForm';
 import DevPasswordResetForm from './components/auth/DevPasswordResetForm';
 import ProtectedRoute from './components/routing/ProtectedRoute';
-
 import QuestPage from './pages/QuestPage';
 import TagsPage from './pages/TagsPage';
 import DashboardPage from './pages/DashboardPage';
 import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
 import HabitTemplatesPage from './pages/HabitTemplatesPage';
 import CalendarPage from './pages/CalendarPage';
+// import SettingsPage from './pages/SettingsPage'; 
 
-import EnergyBalanceBar from './components/gamification/EnergyBalanceBar';
-import UserStatsDisplay from './components/gamification/UserStatsDisplay';
-
-import './App.css';
-import './index.css';
-import './styles/gamification.css';
+import './App.css'; 
+import './index.css'; 
+import './styles/layout.css'; 
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function HomePage() {
     const { currentUser } = useContext(UserContext);
     const isAuthenticated = !!currentUser;
-    // ... (sin cambios)
     return (
-        <div className="page-container">
+        <div className="page-container" style={{ textAlign: 'center', paddingTop: '5rem' }}>
             <h1>Welcome to Iter Polaris!</h1>
             <p>Your personal gamified agenda awaits your command.</p>
             {!isAuthenticated && (
@@ -50,21 +52,29 @@ function HomePage() {
 }
 
 function App() {
-    const { currentUser, isLoadingProfile, fetchUserProfile, refreshUserStatsAndEnergy } = useContext(UserContext);
+    const { currentUser, isLoadingProfile, fetchUserProfile } = useContext(UserContext);
     const navigate = useNavigate();
-    const location = useLocation(); // Para reaccionar a cambios de ruta si es necesario para logout
+    const location = useLocation();
 
-    // Esta variable determinará si se muestran los elementos protegidos.
-    // Solo será true si no estamos cargando el perfil Y tenemos un usuario.
+    const [activeTagFilters, setActiveTagFilters] = useState([]);
     const isAuthenticatedAndReady = !isLoadingProfile && !!currentUser;
 
+    const handleTagFilterChange = (tagId) => {
+        setActiveTagFilters(prevFilters =>
+            prevFilters.includes(tagId)
+                ? prevFilters.filter(id => id !== tagId)
+                : [...prevFilters, tagId]
+        );
+    };
+    
+    useEffect(() => {
+        if (currentUser?.settings?.sidebarTagFilters) {
+            // setActiveTagFilters(currentUser.settings.sidebarTagFilters); 
+        }
+    }, [currentUser]);
 
     const handleAuthSuccess = async () => {
-        // Al hacer login/registro exitoso, el token se guarda en localStorage.
-        // UserContext se re-evaluará debido al cambio de ruta o al montar ProtectedRoute.
-        // O podemos forzar un fetch aquí si es necesario.
-        await fetchUserProfile(); // Forzar fetch del perfil desde UserContext
-        // La navegación ya la manejan los formularios.
+        await fetchUserProfile(); 
     };
 
     const handleLogout = async () => {
@@ -80,117 +90,81 @@ function App() {
         } finally {
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
-            // Llamar a fetchUserProfile en UserContext hará que currentUser se vuelva null
-            await fetchUserProfile(); // Esto debería resetear el estado en UserContext
+            setActiveTagFilters([]); 
+            await fetchUserProfile(); 
             navigate('/login');
         }
     };
     
-    // Efecto para manejar el caso donde el token es removido externamente (ej. dev tools)
-    // o se vuelve inválido y fetchUserProfile lo limpia.
     useEffect(() => {
         const handleStorageChange = (event) => {
             if (event.key === 'authToken' || event.key === 'currentUser') {
-                // console.log("App.jsx: Detected storage change, re-fetching profile.");
                 fetchUserProfile();
             }
         };
         window.addEventListener('storage', handleStorageChange);
-
-        // Si al cambiar de ruta, el currentUser del contexto es null pero hay un token,
-        // intentar recargar. Esto es por si el contexto no se actualizó a tiempo.
         const token = localStorage.getItem('authToken');
         if (token && !currentUser && !isLoadingProfile) {
-            // console.log("App.jsx: Token exists but no current user, attempting profile fetch on route change.");
-            fetchUserProfile();
+             fetchUserProfile();
         }
-
         return () => {
             window.removeEventListener('storage', handleStorageChange);
         };
     }, [location.pathname, fetchUserProfile, currentUser, isLoadingProfile]);
 
-
     if (isLoadingProfile && localStorage.getItem('authToken')) {
-        // Si hay un token pero aún estamos cargando el perfil, muestra un loader global
-        // para evitar mostrar la página de login/home brevemente.
         return <div className="app-container-loading">Loading Your Realm...</div>;
     }
 
     return (
         <div className="app-container">
-            <header className="main-header">
-                <div className="top-bar">
-                    <Link to="/" className="app-logo">Iter Polaris</Link>
-                    <nav className="main-navigation">
-                        {!isAuthenticatedAndReady ? ( // Usar isAuthenticatedAndReady
-                            <>
-                                <Link to="/register" className="nav-link">Register</Link>
-                                <Link to="/login" className="nav-link">Login</Link>
-                            </>
-                        ) : (
-                            <>
-                                <button onClick={handleLogout} className="nav-button-logout">
-                                    Logout ({currentUser?.name || 'User'})
-                                </button>
-                            </>
-                        )}
-                    </nav>
-                </div>
-                {isAuthenticatedAndReady && <EnergyBalanceBar />} {/* Usar isAuthenticatedAndReady */}
-            </header>
-
-            <div className="app-body">
-                {isAuthenticatedAndReady && ( // Usar isAuthenticatedAndReady
-                    <aside className="left-sidebar">
-                        <UserStatsDisplay />
-                        <nav className="sidebar-navigation">
-                             <Link to="/dashboard" className="sidebar-nav-link">
-                                <span role="img" aria-label="Dashboard Icon">🗺️</span> Dashboard
-                            </Link>
-                            <Link to="/calendar" className="sidebar-nav-link">
-                               <span role="img" aria-label="Calendar Icon">📅</span> Calendar
-                           </Link>
-                            <Link to="/scheduled-missions" className="sidebar-nav-link">
-                                <span role="img" aria-label="Scheduled Icon">🗓️</span> Scheduled
-                            </Link>
-                            <Link to="/habit-templates" className="sidebar-nav-link">
-                                <span role="img" aria-label="Habits Icon">🔄</span> Habits
-                            </Link>
-                            <Link to="/quests" className="sidebar-nav-link">
-                                <span role="img" aria-label="Quests Icon">🏆</span> My Quests
-                            </Link>
-                            <Link to="/tags" className="sidebar-nav-link">
-                                <span role="img" aria-label="Tags Icon">🏷️</span> My Tags
-                            </Link>
-                        </nav>
-                    </aside>
+            <TopBar isAuthenticated={isAuthenticatedAndReady} handleLogout={handleLogout} />
+            
+            <div className="app-body-layout">
+                {isAuthenticatedAndReady && (
+                    <LeftSidebar 
+                        activeTagFilters={activeTagFilters} 
+                        onTagFilterChange={handleTagFilterChange} 
+                    />
                 )}
-                <main className={`main-content ${!isAuthenticatedAndReady ? 'full-width' : ''}`}> {/* Usar isAuthenticatedAndReady */}
+                <MainContentArea isAuthenticated={isAuthenticatedAndReady}>
                     <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/register" element={<RegistrationForm onAuthSuccess={handleAuthSuccess} />} />
                         <Route path="/login" element={<LoginForm onAuthSuccess={handleAuthSuccess} />} />
                         <Route path="/dev-password-reset" element={<DevPasswordResetForm />} />
 
-                        <Route element={<ProtectedRoute />}> {/* ProtectedRoute ahora usará UserContext implícitamente o se podría pasar currentUser */}
-                            <Route path="/dashboard" element={<DashboardPage />} />
-                            <Route path="/scheduled-missions" element={<ScheduledMissionsPage />} />
-                            <Route path="/calendar" element={<CalendarPage />} />
-                            <Route path="/habit-templates" element={<HabitTemplatesPage />} />
-                            <Route path="/quests" element={<QuestPage />} />
+                        <Route element={<ProtectedRoute />}>
+                            <Route 
+                                path="/dashboard" 
+                                element={<DashboardPage activeTagFilters={activeTagFilters} />} 
+                            />
+                            <Route 
+                                path="/scheduled-missions" 
+                                element={<ScheduledMissionsPage activeTagFilters={activeTagFilters} />} // Pasar filtros
+                            />
+                             <Route 
+                                path="/calendar" 
+                                element={<CalendarPage activeTagFilters={activeTagFilters} />} // Pasar filtros
+                            />
+                            <Route 
+                                path="/habit-templates" 
+                                element={<HabitTemplatesPage activeTagFilters={activeTagFilters} />} // Pasar filtros
+                            />
+                            <Route path="/quests" element={<QuestPage />} /> {/* Quests y Tags no se filtran por tags */}
                             <Route path="/tags" element={<TagsPage />} />
+                            {/* <Route path="/settings" element={<SettingsPage />} /> */}
                         </Route>
 
                         <Route path="*" element={
-                            <div className="page-container">
+                            <div className="page-container" style={{ textAlign: 'center', paddingTop: '5rem' }}>
                                 <h2>404 - Page Not Found</h2>
                                 <p>The page you are looking for does not exist.</p>
-                                <Link to="/" className="nav-link">Go to Homepage</Link>
+                                <Link to="/" className="nav-link-layout">Go to Homepage</Link>
                             </div>
                         } />
                     </Routes>
-                </main>
+                </MainContentArea>
             </div>
 
             <footer className="main-footer">

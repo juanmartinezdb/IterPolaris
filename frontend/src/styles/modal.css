@@ -1,0 +1,100 @@
+/* frontend/src/styles/modal.css */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(10, 25, 47, 0.8); /* --color-bg-deep-blue con alpha */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100; /* Aumentado desde 1050. Asegúrate que sea mayor que el z-index del calendario y sus popups. */
+    backdrop-filter: blur(4px);
+    padding: 1rem; 
+}
+
+.modal-content {
+    background-color: var(--color-bg-content-area, #172A45);
+    padding: 0; 
+    border-radius: var(--border-radius-standard, 8px);
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    max-width: 650px; 
+    max-height: 90vh; 
+    display: flex;
+    flex-direction: column;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover, #c9a36a);
+}
+
+.modal-title {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    font-size: 1.4em;
+    margin: 0;
+}
+
+.modal-close-button {
+    background: none;
+    border: none;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-size: 1.8em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0.2rem 0.5rem;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+.modal-close-button:hover {
+    color: var(--color-accent-gold, #B08D57);
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto; 
+    flex-grow: 1; 
+}
+
+.modal-body .quest-form,
+.modal-body .tag-form,
+.modal-body .pool-mission-form-container,
+.modal-body .scheduled-mission-form-container,
+.modal-body .habit-template-form-container {
+    border: none; 
+    box-shadow: none; 
+    padding: 0; 
+    margin-bottom: 0; 
+    background-color: transparent; 
+}
+.modal-body .pool-mission-form, 
+.modal-body .scheduled-mission-form,
+.modal-body .habit-template-form {
+    background-color: transparent;
+}
+
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-body .tag-selector-available-tags {
+    position: relative; 
+    /* z-index: 1; Si necesitas que un dropdown dentro del modal esté encima de otros elementos del modal body.
+       Pero el z-index principal del modal-overlay debería manejar la superposición con la página. */
+}

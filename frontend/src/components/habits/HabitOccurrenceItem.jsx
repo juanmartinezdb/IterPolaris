@@ -1,23 +1,23 @@
 // frontend/src/components/habits/HabitOccurrenceItem.jsx
 import React from 'react';
-import { getContrastColor } from '../../utils/colorUtils'; // Import a la utilidad
+import { getContrastColor } from '../../utils/colorUtils';
 import '../../styles/habits.css';
+import '../../styles/missions-shared.css'; // For .tag-badge-sm
 
 const formatTimeForDisplay = (isoString) => {
     if (!isoString) return 'N/A';
     try {
         const date = new Date(isoString);
-        return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString(navigator.language || 'en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
     } catch (e) { return 'Invalid Time'; }
 };
-
 
 function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
     
     let questColor = 'var(--color-accent-gold)'; 
     if (occurrence.quest_id && questColors && questColors[occurrence.quest_id]) {
         questColor = questColors[occurrence.quest_id];
-    } else if (!occurrence.quest_id) { // Default color for habits without a specific quest
+    } else if (!occurrence.quest_id) { 
         questColor = 'var(--color-purple-mystic, #6D21A9)';
     }
     
@@ -34,6 +34,9 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
     const durationDisplay = occurrence.rec_duration_minutes 
         ? ` (~${occurrence.rec_duration_minutes} min)`
         : '';
+    
+    // Asegurarse que occurrence.tags exista y sea un array
+    const tagsToDisplay = Array.isArray(occurrence.tags) ? occurrence.tags : [];
 
     return (
         <li 
@@ -46,15 +49,16 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
                         {formatTimeForDisplay(occurrence.scheduled_start_datetime)}
                         {durationDisplay}
                     </span>
-                    <h5 className="habit-occurrence-title">{occurrence.title}</h5>
+                    <h5 className="habit-occurrence-title" title={occurrence.title}>{occurrence.title}</h5>
                     {occurrence.quest_name && ( 
                         <span 
                             className="quest-name-badge-sm" 
                             style={{ 
                                 backgroundColor: questColor, 
                                 color: textColorForQuestBadge,
-                                borderColor: questColor 
+                                borderColor: textColorForQuestBadge === 'var(--color-text-on-accent, #0A192F)' ? 'var(--color-text-on-dark-muted)' : 'transparent'
                             }}
+                            title={`Quest: ${occurrence.quest_name}`}
                         >
                             {occurrence.quest_name}
                         </span>
@@ -77,6 +81,14 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
             </div>
             {occurrence.description && (
                  <p className="habit-occurrence-description">{occurrence.description}</p>
+            )}
+            {/* Display Tags for Habit Occurrence (from template) */}
+            {tagsToDisplay.length > 0 && (
+                <div className="upcoming-item-tags-container" style={{ paddingLeft: '0', marginTop: '0.3rem' }}> {/* Adjusted padding */}
+                    {tagsToDisplay.map(tag => (
+                        <span key={tag.id} className="tag-badge-sm" title={`Tag: ${tag.name}`}>{tag.name}</span>
+                    ))}
+                </div>
             )}
             <div className="habit-occurrence-meta">
                 <span>⚡ {occurrence.energy_value > 0 ? `+${occurrence.energy_value}` : occurrence.energy_value}</span>
