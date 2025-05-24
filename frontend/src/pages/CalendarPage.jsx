@@ -6,34 +6,33 @@ import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
-// import enUS from 'date-fns/locale/en-US'; // en-GB se usará para startOfWeek
+// import enUS from 'date-fns/locale/en-US'; 
 import enGB from 'date-fns/locale/en-GB';
 import axios from 'axios';
+import { getContrastColor } from '../utils/colorUtils';
 
 import { UserContext } from '../contexts/UserContext';
 import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm';
 import CalendarMissionPool from '../components/calendar/CalendarMissionPool';
 import EventActionMenu from '../components/calendar/EventActionMenu';
 import HabitTemplateForm from '../components/habits/HabitTemplateForm';
-import Modal from '../components/common/Modal'; // Para los formularios
-import ConfirmationDialog from '../components/common/ConfirmationDialog'; // Para confirmaciones de borrado
-// PoolMissionForm no se usa directamente en CalendarPage para "crear", se usa el ScheduledMissionForm para conversión.
-// Pero CalendarMissionPool lo usa internamente para editar.
+import Modal from '../components/common/Modal'; 
+import ConfirmationDialog from '../components/common/ConfirmationDialog'; 
+
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import '../styles/calendar.css';
-import '../styles/dialog.css'; // O asegúrate que esté global si Modal/ConfirmationDialog lo necesitan
+import '../styles/dialog.css'; 
 
 const locales = {
-    // 'en-US': enUS,
-    'en-GB': enGB, // Usar en-GB para que la semana empiece en Lunes
+    'en-GB': enGB, 
 };
 
 const localizer = dateFnsLocalizer({
     format,
     parse,
-    startOfWeek: (date) => startOfWeek(date, { locale: locales['en-GB'] }), // Asegurar que la semana empiece en Lunes
+    startOfWeek: (date) => startOfWeek(date, { locale: locales['en-GB'] }), 
     getDay,
     locales,
 });
@@ -46,35 +45,11 @@ const API_HABIT_TEMPLATES_URL = `${import.meta.env.VITE_API_BASE_URL}/habit-temp
 const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-// Mover la función getContrastColor fuera del componente si no depende de su estado o props.
-// O importarla desde utils si ya existe allí.
-// Por ahora, la mantengo como la tenías para minimizar cambios estructurales en tu versión.
-function getContrastColor(hexColor) {
-    if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return 'var(--color-text-on-dark)';
-    try {
-        let r, g, b;
-        if (hexColor.length === 4) { // Shorthand #RGB
-            r = parseInt(hexColor[1] + hexColor[1], 16);
-            g = parseInt(hexColor[2] + hexColor[2], 16);
-            b = parseInt(hexColor[3] + hexColor[3], 16);
-        } else if (hexColor.length === 7) { // Full #RRGGBB
-            r = parseInt(hexColor.slice(1, 3), 16);
-            g = parseInt(hexColor.slice(3, 5), 16);
-            b = parseInt(hexColor.slice(5, 7), 16);
-        } else {
-            return 'var(--color-text-on-dark)'; // Formato inválido
-        }
-        return (((r * 299) + (g * 587) + (b * 114)) / 1000) >= 128 ? 'var(--color-text-on-accent)' : 'var(--color-text-on-dark)';
-    } catch (e) {
-        return 'var(--color-text-on-dark)';
-    }
-}
 
-
-function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilters
+function CalendarPage({ activeTagFilters }) { 
     const { currentUser, refreshUserStatsAndEnergy } = useContext(UserContext);
     const [events, setEvents] = useState([]);
-    const [isLoading, setIsLoading] = useState(false); // isLoading para la carga inicial y refresh manual
+    const [isLoading, setIsLoading] = useState(false); 
     const [error, setError] = useState(null);
     const [infoMessage, setInfoMessage] = useState('');
     const [questColors, setQuestColors] = useState({});
@@ -95,7 +70,7 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
     const [editingHabitTemplate, setEditingHabitTemplate] = useState(null);
 
     const [draggedExternalMission, setDraggedExternalMission] = useState(null);
-    const [refreshPoolCounter, setRefreshPoolCounter] = useState(0); // Para refrescar CalendarMissionPool
+    const [refreshPoolCounter, setRefreshPoolCounter] = useState(0); 
 
     const [actionMenu, setActionMenu] = useState({
         visible: false, x: 0, y: 0, event: null,
@@ -104,7 +79,6 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
 
     const clearInfoMessage = useCallback(() => setTimeout(() => setInfoMessage(''), 4000), []);
 
-    // Persistir vista y fecha en localStorage
     useEffect(() => { localStorage.setItem('calendarLastView', currentView); }, [currentView]);
     useEffect(() => { localStorage.setItem('calendarLastDate', currentDate.toISOString()); }, [currentDate]);
 
@@ -122,26 +96,21 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
 
     const fetchCalendarEvents = useCallback(async (forceRefresh = false) => {
         if (!currentUser) return;
-        // Evitar múltiples cargas si ya está cargando, a menos que sea un forceRefresh
         if (!forceRefresh && isLoading) return; 
         
         setIsLoading(true);
         setError(null);
         const token = localStorage.getItem('authToken');
 
-        // Crear parámetros para las llamadas API
         const params = new URLSearchParams();
         if (activeTagFilters && activeTagFilters.length > 0) {
             activeTagFilters.forEach(tagId => params.append('tags', tagId));
         }
-        // El backend ya debería devolver solo 'PENDING' para ciertos contextos si es necesario,
-        // o el frontend filtra después. Para el calendario, usualmente se muestran todos los estados.
-        // Si un filtro de status específico para calendario se añade, iría aquí.
-
+        
         try {
             const [scheduledResponse, habitsResponse] = await Promise.all([
-                axios.get(API_SCHEDULED_MISSIONS_URL, { headers: { 'Authorization': `Bearer ${token}` }, params: new URLSearchParams(params) }), // Clonar params
-                axios.get(API_HABIT_OCCURRENCES_URL, { headers: { 'Authorization': `Bearer ${token}` }, params: new URLSearchParams(params) })  // Clonar params
+                axios.get(API_SCHEDULED_MISSIONS_URL, { headers: { 'Authorization': `Bearer ${token}` }, params: new URLSearchParams(params) }), 
+                axios.get(API_HABIT_OCCURRENCES_URL, { headers: { 'Authorization': `Bearer ${token}` }, params: new URLSearchParams(params) })  
             ]);
 
             const scheduledMissions = (scheduledResponse.data || []).map(mission => ({
@@ -149,13 +118,13 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
                 title: mission.title,
                 start: new Date(mission.start_datetime),
                 end: new Date(mission.end_datetime),
-                allDay: false, // Asumimos que no son allDay a menos que se especifique
+                allDay: false, 
                 resource: { 
                     type: 'SCHEDULED_MISSION', 
                     original: mission, 
                     questId: mission.quest_id, 
                     status: mission.status,
-                    tags: mission.tags || [] // Asegurar que tags exista
+                    tags: mission.tags || [] 
                 },
             }));
             
@@ -170,8 +139,8 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
                     original: occurrence, 
                     questId: occurrence.quest_id, 
                     status: occurrence.status,
-                    habit_template_id: occurrence.habit_template_id, // Necesario para editar plantilla
-                    tags: occurrence.tags || [] // Asumiendo que el backend ahora incluye tags de la plantilla
+                    habit_template_id: occurrence.habit_template_id, 
+                    tags: occurrence.tags || [] 
                 },
             }));
             setEvents([...scheduledMissions, ...habitOccurrences]);
@@ -181,25 +150,21 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
         } finally {
             setIsLoading(false);
         }
-    // activeTagFilters añadido como dependencia
     }, [currentUser, isLoading, activeTagFilters]); 
 
     useEffect(() => { fetchQuestColors(); }, [fetchQuestColors]);
     
     useEffect(() => {
         if (currentUser) {
-            // El primer fetchCalendarEvents se llamará debido al cambio en activeTagFilters
-            // o si el currentUser cambia (ej. login).
-            // Para refrescar cuando cambian los filtros, fetchCalendarEvents debe tener activeTagFilters en su dep array.
-             fetchCalendarEvents(true); // Forzar un refresh si los filtros cambian
+             fetchCalendarEvents(true); 
         } else {
-            setEvents([]); // Limpiar eventos si no hay usuario
+            setEvents([]); 
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps 
-    }, [currentUser, activeTagFilters]); // fetchCalendarEvents ya está en useCallback con activeTagFilters
+    }, [currentUser, activeTagFilters]); 
 
     const eventStyleGetter = useCallback((event, start, end, isSelected) => {
-        let backgroundColor = 'var(--color-accent-secondary)'; // Un color por defecto
+        let backgroundColor = 'var(--color-accent-secondary)'; 
         const questId = event.resource?.questId;
         const status = event.resource?.status;
         const type = event.resource?.type;
@@ -207,30 +172,26 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
         if (questId && questColors[questId]) {
             backgroundColor = questColors[questId];
         } else if (type === 'HABIT_OCCURRENCE' && (!questId || !questColors[questId])) {
-            // Color por defecto específico para hábitos sin quest asignada o si el color de la quest no se encuentra
             backgroundColor = 'var(--color-purple-mystic, #6D21A9)';
         }
         
-        let opacity = 0.95; // Un poco menos opaco por defecto
+        let opacity = 0.95; 
         let textDecoration = 'none';
-        // Usar un color de borde que contraste o sea coherente con el estado
         let borderColor = isSelected ? 'var(--color-accent-gold-hover)' : backgroundColor; 
 
         if (status === 'COMPLETED') {
             opacity = 0.6;
             textDecoration = 'line-through';
-             // Color de fondo diferente para completados para mejor diferenciación
             if (type === 'HABIT_OCCURRENCE') {
                 backgroundColor = 'var(--color-success-dark, #3A8E5A)';
-            } else { // Scheduled Mission completada
-                // Un gris oscuro o un tono apagado del color de la quest
-                backgroundColor = getContrastColor(backgroundColor) === 'var(--color-text-on-accent)' ? '#a9a9a9' : '#555555'; // Ejemplo
+            } else { 
+                backgroundColor = getContrastColor(backgroundColor) === 'var(--color-text-on-accent)' ? '#a9a9a9' : '#555555'; 
             }
         } else if (status === 'SKIPPED') {
             opacity = 0.5;
             textDecoration = 'line-through';
             backgroundColor = 'var(--color-text-on-dark-muted, #8892b0)'; 
-            borderColor = 'var(--color-text-on-dark-muted)'; // Borde igual al fondo para skipped
+            borderColor = 'var(--color-text-on-dark-muted)'; 
         }
         
         return {
@@ -238,16 +199,16 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
                 backgroundColor,
                 borderRadius: '3px',
                 opacity: opacity,
-                color: getContrastColor(backgroundColor), // Usar la función de utilidad
+                color: getContrastColor(backgroundColor), 
                 border: `1px solid ${borderColor}`,
                 display: 'block',
-                padding: '3px 5px', // Ajustar padding si es necesario
-                fontSize: '0.85em', // Un poco más grande para legibilidad
+                padding: '3px 5px', 
+                fontSize: '0.85em', 
                 textDecoration: textDecoration,
-                boxShadow: isSelected ? '0 0 5px var(--color-accent-gold)' : 'none', // Sombra para seleccionados
+                boxShadow: isSelected ? '0 0 5px var(--color-accent-gold)' : 'none', 
             }
         };
-    }, [questColors]); // Añadir questColors a las dependencias
+    }, [questColors]); 
 
     const handleNavigate = useCallback((newDate) => {
         setCurrentDate(new Date(newDate));
@@ -263,24 +224,23 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
 
     const handleSelectSlot = useCallback(({ start, end }) => {
         closeActionMenu();
-        setEditingScheduledMission(null); // Asegurar que no estamos editando
+        setEditingScheduledMission(null); 
         setSlotInfoForNewMission({ start, end });
         setShowScheduledMissionForm(true);
-    }, [closeActionMenu]); // closeActionMenu es dependencia
+    }, [closeActionMenu]); 
 
     const handleSelectEvent = useCallback((eventData, domEvent) => {
         domEvent.preventDefault();
         domEvent.stopPropagation();
-        // Lógica para posicionar el menú (sin cambios)
         const calendarWrapper = calendarRef.current.querySelector('.rbc-calendar') || calendarRef.current;
         if (!calendarWrapper) return;
         const calendarRect = calendarWrapper.getBoundingClientRect();
         let x = domEvent.clientX - calendarRect.left;
         let y = domEvent.clientY - calendarRect.top;
         const menuWidth = 180; 
-        const menuHeight = eventData.resource?.type === 'SCHEDULED_MISSION' ? 180 : 120; // Estimación
-        if (x + menuWidth > calendarRect.width) x -= menuWidth; // Ajustar si se sale por la derecha
-        if (y + menuHeight > calendarRect.height) y -= menuHeight; // Ajustar si se sale por abajo
+        const menuHeight = eventData.resource?.type === 'SCHEDULED_MISSION' ? 180 : 120; 
+        if (x + menuWidth > calendarRect.width) x -= menuWidth; 
+        if (y + menuHeight > calendarRect.height) y -= menuHeight; 
         setActionMenu({ visible: true, x: Math.max(0, x + 5), y: Math.max(0, y + 5), event: eventData });
     }, []); 
     
@@ -308,8 +268,8 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
             await axios.post(API_POOL_MISSIONS_URL, poolMissionPayload, { headers: { 'Authorization': `Bearer ${token}` } });
             await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${scheduledMissionOriginal.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
             setInfoMessage(`"${scheduledMissionOriginal.title}" moved to Mission Pool.`); clearInfoMessage();
-            fetchCalendarEvents(true); // Forzar refresh
-            setRefreshPoolCounter(prev => prev + 1); // Refrescar el pool del sidebar
+            fetchCalendarEvents(true); 
+            setRefreshPoolCounter(prev => prev + 1); 
             refreshUserStatsAndEnergy();
         } catch (err) { setError(err.response?.data?.error || "Failed to move mission to pool."); }
     };
@@ -325,8 +285,7 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
                 case 'edit_scheduled_mission':
                     setEditingScheduledMission(original); setSlotInfoForNewMission(null); setShowScheduledMissionForm(true); return;
                 case 'delete_scheduled_mission':
-                    // Implementar confirmación aquí si es necesario, o llamar a una función que lo haga
-                    if (window.confirm(`Are you sure you want to delete "${original.title}"? This action is permanent.`)) { // Simple confirm por ahora
+                    if (window.confirm(`Are you sure you want to delete "${original.title}"? This action is permanent.`)) { 
                         try {
                             await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${original.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
                             fetchCalendarEvents(true); refreshUserStatsAndEnergy();
@@ -375,8 +334,8 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
     
     const onEventOperation = useCallback(async (operationType, { event, start, end }) => {
         closeActionMenu();
-        const { original } = event.resource; // Asumimos que 'original' está en event.resource
-        if (event.resource.type !== 'SCHEDULED_MISSION') return; // Solo para ScheduledMissions por ahora
+        const { original } = event.resource; 
+        if (event.resource.type !== 'SCHEDULED_MISSION') return; 
         
         const token = localStorage.getItem('authToken');
         const payload = {
@@ -384,30 +343,28 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
             description: original.description,
             energy_value: original.energy_value, 
             points_value: original.points_value,
-            status: original.status, // Mantener status actual al mover/redimensionar
+            status: original.status, 
             quest_id: original.quest_id,
-            tag_ids: original.tags?.map(t => t.id) || [], // Asegurarse que tags sea un array de IDs
+            tag_ids: original.tags?.map(t => t.id) || [], 
             start_datetime: start.toISOString(), 
             end_datetime: end.toISOString(),
         };
         try {
             await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${original.id}`, payload, { headers: { 'Authorization': `Bearer ${token}` } });
-            fetchCalendarEvents(true); // Forzar refresh del calendario
+            fetchCalendarEvents(true); 
         } catch (err) {
             setError(err.response?.data?.error || `Failed to ${operationType === 'move' ? 'move' : 'resize'} event.`);
-            fetchCalendarEvents(true); // Re-fetch incluso en error para restaurar estado visual
+            fetchCalendarEvents(true); 
         }
-    }, [fetchCalendarEvents, closeActionMenu]); // Añadir closeActionMenu
+    }, [fetchCalendarEvents, closeActionMenu]); 
     
-    // onEventDrop y onEventResize usan onEventOperation
     const onEventDrop = useCallback((args) => {
         if (args.event.resource?.type === 'SCHEDULED_MISSION') {
              onEventOperation('move', args);
         } else {
-            // PRD: "For MVP, individual habit occurrences cannot be rescheduled independently of the template."
             setInfoMessage("Habit occurrences cannot be rescheduled this way. Edit the habit definition instead.");
             clearInfoMessage();
-            fetchCalendarEvents(true); // Re-fetch para asegurar que el evento no se movió visualmente por error
+            fetchCalendarEvents(true); 
         }
     }, [onEventOperation, fetchCalendarEvents, clearInfoMessage, setInfoMessage]);
 
@@ -417,30 +374,60 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
         setDraggedExternalMission(poolMission);
     }, []);
     
-    const onDropFromOutside = useCallback(async ({ start, end }) => { // 'end' también es provisto por RBC
+    // *** MODIFIED onDropFromOutside ***
+    const onDropFromOutside = useCallback(async ({ start, end }) => { 
         closeActionMenu();
         if (!draggedExternalMission) return;
+        const token = localStorage.getItem('authToken');
         
-        // Abrir el formulario de ScheduledMission con datos pre-rellenados del PoolMission
-        setEditingScheduledMission(draggedExternalMission); // Usar el PoolMission como base para editar
-        setSlotInfoForNewMission({ 
-            start, 
-            end: end || new Date(start.getTime() + 60 * 60 * 1000), // Si 'end' no está, default a 1 hora
-            convertingPoolMissionId: draggedExternalMission.id // Flag para el form
-        });
-        setShowScheduledMissionForm(true);
-        setDraggedExternalMission(null); // Limpiar el estado de arrastre
-    }, [draggedExternalMission, closeActionMenu]);
+        // Asegurar que 'end' tenga un valor. Si es una vista de día completo, 'end' podría ser igual a 'start'.
+        // O si se suelta en un slot de tiempo muy corto. Daremos una duración por defecto si 'end' no es significativamente mayor que 'start'.
+        let finalEnd = end;
+        if (!end || end.getTime() <= start.getTime()) {
+            finalEnd = new Date(start.getTime() + 60 * 60 * 1000); // Default a 1 hora de duración
+        }
+
+        const missionDataPayload = {
+            title: draggedExternalMission.title,
+            description: draggedExternalMission.description || null,
+            energy_value: draggedExternalMission.energy_value,
+            points_value: draggedExternalMission.points_value,
+            start_datetime: start.toISOString(),
+            end_datetime: finalEnd.toISOString(),
+            quest_id: draggedExternalMission.quest_id,
+            tag_ids: draggedExternalMission.tags ? draggedExternalMission.tags.map(t => t.id) : [],
+            status: 'PENDING', // Nueva misión programada siempre es PENDING
+        };
+
+        try {
+            // 1. Crear la nueva ScheduledMission
+            await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, { headers: { 'Authorization': `Bearer ${token}` } });
+            
+            // 2. Borrar la PoolMission original
+            await axios.delete(`${API_POOL_MISSIONS_URL}/${draggedExternalMission.id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            
+            // 3. Refrescar datos y UI
+            fetchCalendarEvents(true); // Refrescar eventos del calendario
+            setRefreshPoolCounter(prev => prev + 1); // Refrescar el pool de misiones en el sidebar
+            refreshUserStatsAndEnergy(); // Actualizar estadísticas del usuario si aplica (aunque la creación directa de SM no da puntos/energía)
+            setInfoMessage(`"${draggedExternalMission.title}" scheduled successfully from pool.`);
+            clearInfoMessage();
+
+        } catch (err) {
+            console.error("Failed to convert pool mission:", err.response?.data || err.message);
+            setError(err.response?.data?.error || "Failed to convert pool mission.");
+        } finally {
+            setDraggedExternalMission(null); // Limpiar el estado de arrastre
+        }
+    }, [draggedExternalMission, fetchCalendarEvents, refreshUserStatsAndEnergy, closeActionMenu, clearInfoMessage, setInfoMessage]);
 
 
     const dragFromOutsideItem = useCallback(() => {
-        // Esto es solo para la previsualización mientras se arrastra
         if (!draggedExternalMission) return null;
         return { title: `(Pool) ${draggedExternalMission.title}`, start: new Date(), end: new Date(new Date().getTime() + 60 * 60 * 1000) };
     }, [draggedExternalMission]);
 
     const customOnDragOver = useCallback((dragEvent) => {
-        // Permitir soltar si es un elemento externo que estamos manejando
         if (draggedExternalMission) {
             dragEvent.preventDefault();
         }
@@ -450,26 +437,25 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
         setShowScheduledMissionForm(false);
         setEditingScheduledMission(null);
         setSlotInfoForNewMission(null);
-        fetchCalendarEvents(true); // Forzar refresh
-        if(isConversionSuccess) setRefreshPoolCounter(prev => prev + 1); // Refrescar pool si fue conversión
+        fetchCalendarEvents(true); 
+        if(isConversionSuccess) setRefreshPoolCounter(prev => prev + 1); 
         refreshUserStatsAndEnergy();
     };
     
     const handleHabitTemplateFormSubmit = () => {
         setShowHabitTemplateForm(false);
         setEditingHabitTemplate(null);
-        fetchCalendarEvents(true); // Forzar refresh
+        fetchCalendarEvents(true); 
         refreshUserStatsAndEnergy(); 
         setInfoMessage("Habit definition updated. Future occurrences regenerated.");
         clearInfoMessage();
     };
 
     const draggableAccessor = (event) => {
-        // Solo las ScheduledMissions PENDIENTES son arrastrables
         if (event.resource?.type === 'SCHEDULED_MISSION') {
             return event.resource?.status === 'PENDING';
         }
-        return false; // HabitOccurrences no son arrastrables según PRD MVP
+        return false; 
     };
     const resizableAccessor = (event) => event.resource?.type === 'SCHEDULED_MISSION' && event.resource?.status === 'PENDING';
     
@@ -479,7 +465,7 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
         return todayAt7AM;
     }, []);
 
-    if (isLoading && events.length === 0 && !currentUser) { // Modificado para solo mostrar si no hay usuario Y está cargando
+    if (isLoading && events.length === 0 && !currentUser) { 
         return <div className="page-container"><p>Please log in to see your calendar.</p></div>;
     }
     if (isLoading && events.length === 0 && currentUser) {
@@ -493,18 +479,17 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
             
             <div className="calendar-main-area" ref={calendarRef}>
                 <h2>Your Calendar</h2>
-                {/* Wrapper para el calendario para mejor control de altura */}
                 <div className="calendar-wrapper"> 
                     <DragAndDropCalendar
                         localizer={localizer}
                         events={events}
-                        date={currentDate} // Controlado
-                        view={currentView}   // Controlado
+                        date={currentDate} 
+                        view={currentView}   
                         onNavigate={handleNavigate}
                         onView={handleView}
                         startAccessor="start"
                         endAccessor="end"
-                        className="rbc-calendar-container" // Para aplicar estilos específicos al contenedor del calendario
+                        className="rbc-calendar-container" 
                         views={[Views.MONTH, Views.WEEK, Views.DAY]} 
                         selectable
                         onSelectSlot={handleSelectSlot}
@@ -518,13 +503,13 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
                         
                         onDropFromOutside={onDropFromOutside}
                         dragFromOutsideItem={dragFromOutsideItem} 
-                        onDragOver={customOnDragOver} // Necesario para que onDropFromOutside funcione correctamente
+                        onDragOver={customOnDragOver} 
                         step={30}
-                        timeslots={2} // Cada media hora
-                        popup // Para manejar eventos superpuestos en la vista mensual
-                        scrollToTime={scrollToTime} // Scroll a las 7 AM en vistas de día/semana
-                        culture='en-GB' // Para formato de fecha y primer día de la semana (Lunes)
-                        messages={{ // Personalizar textos si es necesario
+                        timeslots={2} 
+                        popup 
+                        scrollToTime={scrollToTime} 
+                        culture='en-GB' 
+                        messages={{ 
                             today: "Today",
                             previous: "Back",
                             next: "Next",
@@ -548,20 +533,17 @@ function CalendarPage({ activeTagFilters }) { // <--- AÑADIR PROP activeTagFilt
             </div>
             <CalendarMissionPool 
                 onDragStartPoolMission={handleDragStartExternal} 
-                activeTagFilters={activeTagFilters} // Pasar filtros de tags globales
+                activeTagFilters={activeTagFilters} 
                 refreshTrigger={refreshPoolCounter} 
-                // Las funciones de edición/borrado para PoolMissions aquí son manejadas por el propio CalendarMissionPool si es necesario
-                // o podrían ser pasadas si CalendarPage necesitara coordinar algo más.
             />
 
-            {/* Modales para formularios */}
             {showScheduledMissionForm && (
                 <Modal 
                     title={editingScheduledMission && !slotInfoForNewMission?.convertingPoolMissionId ? "Edit Scheduled Mission" : (slotInfoForNewMission?.convertingPoolMissionId ? "Convert Pool Mission" : "Create Scheduled Mission")}
                     onClose={() => { setShowScheduledMissionForm(false); setEditingScheduledMission(null); setSlotInfoForNewMission(null); }}
                 >
                     <ScheduledMissionForm
-                        missionToEdit={editingScheduledMission} // Si es conversión, editingScheduledMission es el PoolMission
+                        missionToEdit={editingScheduledMission} 
                         slotInfo={slotInfoForNewMission}
                         onFormSubmit={handleScheduledMissionFormSubmit}
                         onCancel={() => {

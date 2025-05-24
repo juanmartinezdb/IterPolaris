@@ -1,5 +1,5 @@
 from . import db # Importa la instancia db de __init__.py
-from sqlalchemy.dialects.postgresql import UUID, TEXT, BOOLEAN, INTEGER, TIMESTAMP, DATE, TIME, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, TEXT, BOOLEAN, INTEGER, TIMESTAMP, DATE, TIME, ARRAY, JSONB
 from sqlalchemy import UniqueConstraint, CheckConstraint
 from datetime import datetime, timezone 
 import uuid
@@ -21,6 +21,7 @@ class User(db.Model):
     level = db.Column(INTEGER, default=1, nullable=False)
     current_streak = db.Column(INTEGER, default=0, nullable=False)
     last_login_date = db.Column(DATE, nullable=True)
+    settings = db.Column(JSONB, nullable=True, default=lambda: {"sidebar_pinned_tag_ids": []}) 
     created_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

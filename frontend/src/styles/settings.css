@@ -1,0 +1,129 @@
+/* frontend/src/styles/settings.css */
+.settings-page {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 1.5rem 2rem; /* Consistent with other pages */
+    background-color: var(--color-bg-content-area);
+    border-radius: var(--border-radius-standard);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.settings-page h2 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-bottom: 2rem; /* More space after main title */
+    font-size: 2em;
+}
+
+.settings-section {
+    background-color: var(--color-bg-elevated, #21395A);
+    padding: 1.5rem;
+    border-radius: var(--border-radius-input, 4px);
+    margin-bottom: 2rem;
+    border: 1px solid var(--color-accent-gold-hover, #5b4b3a); /* Subtler border */
+}
+
+.settings-section h3 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover, #5b4b3a);
+    font-size: 1.3em;
+}
+
+.settings-description {
+    font-size: 0.9em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.pinned-tags-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Responsive columns */
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--color-text-on-dark-muted);
+    border-radius: var(--border-radius-input);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.pinned-tag-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--color-bg-deep-blue); /* Slightly darker for items */
+    border-radius: var(--border-radius-input);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 1px solid transparent; /* Placeholder for focus/hover */
+}
+.pinned-tag-item:hover {
+    background-color: var(--color-accent-gold-hover);
+    color: var(--color-text-on-accent);
+}
+.pinned-tag-item input[type="checkbox"] {
+    margin-right: 0.75rem;
+    cursor: pointer;
+    width: 16px; /* Custom checkbox size */
+    height: 16px;
+    /* Consider custom checkbox styles for theming later */
+}
+.pinned-tag-item span {
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    color: var(--color-text-on-dark, #EAEAEA);
+    font-size: 0.95em;
+}
+.pinned-tag-item input[type="checkbox"]:checked + span {
+    font-weight: bold;
+    color: var(--color-accent-secondary); /* Green for selected */
+}
+
+
+.settings-save-button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    padding: 0.75rem 1.5rem;
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border: none;
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+    display: block; /* Para centrar o alinear */
+    margin-top: 1rem; /* Espacio sobre el botón */
+}
+.settings-save-button:hover:not(:disabled) {
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+}
+.settings-save-button:disabled {
+    background-color: var(--color-text-on-dark-muted, #8892b0);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Mensajes de error/éxito (reutilizar de auth.css o definir globalmente) */
+.settings-page .error-message {
+    color: var(--color-error, #FF6B6B);
+    background-color: rgba(255, 107, 107, 0.1);
+    border: 1px solid var(--color-error, #FF6B6B);
+    padding: 0.75rem;
+    border-radius: var(--border-radius-input);
+    margin-bottom: 1rem;
+    text-align: center;
+}
+.settings-page .success-message {
+    color: var(--color-success, #50C878);
+    background-color: rgba(80, 200, 120, 0.1);
+    border: 1px solid var(--color-success, #50C878);
+    padding: 0.75rem;
+    border-radius: var(--border-radius-input);
+    margin-bottom: 1rem;
+    text-align: center;
+}

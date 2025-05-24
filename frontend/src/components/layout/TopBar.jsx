@@ -1,12 +1,13 @@
 // frontend/src/components/layout/TopBar.jsx
 import React, { useState, useContext, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom'; // Removed useNavigate as it's not used yet
+import { Link, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import EnergyBalanceBar from '../gamification/EnergyBalanceBar';
 // Ensure layout.css is created and imported
 // import '../../styles/layout.css'; // Will be created next
 
 function TopBar({ isAuthenticated, handleLogout }) {
+    const navigate = useNavigate();
     const { currentUser } = useContext(UserContext);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -28,7 +29,7 @@ function TopBar({ isAuthenticated, handleLogout }) {
 
     const handleSettingsClick = () => {
         setDropdownOpen(false);
-        alert("Settings page - Coming soon!");
+        navigate('/settings');
         // navigate('/settings'); // PRD: Settings (minimal, including Tag filter configuration) - Part of Task 9
     };
 

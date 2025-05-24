@@ -1,29 +1,54 @@
 // frontend/src/components/layout/LeftSidebar.jsx
-import React, { useState, useContext } from 'react'; // useContext no es necesario si currentUser no se usa directamente aquí
-import { NavLink } from 'react-router-dom';
+import React, { useState, useContext } from 'react'; 
+import { NavLink, useNavigate } from 'react-router-dom';
 import UserStatsDisplay from '../gamification/UserStatsDisplay';
 import TagFilter from '../tags/TagFilter';
-// import { UserContext } from '../../contexts/UserContext'; // No es estrictamente necesario si no se usa currentUser directamente aquí
+import { UserContext } from '../../contexts/UserContext'; // Necesario para currentUser.settings
 
-// Import form components for the "Add New" modal
 import QuestForm from '../quests/QuestForm';
 import TagForm from '../tags/TagForm';
 import PoolMissionForm from '../missions/pool/PoolMissionForm';
 import ScheduledMissionForm from '../missions/scheduled/ScheduledMissionForm';
 import HabitTemplateForm from '../habits/HabitTemplateForm';
-// ConfirmationDialog no se usa directamente para el "Add New" pero podría ser para otras acciones del sidebar
 import Modal from '../common/Modal'; 
 
-// import '../../styles/layout.css'; // Importado en App.jsx
+// Importar contextos o funciones de refresco si los creamos más adelante
+// import { QuestContext } from '../../contexts/QuestContext';
+// import { TagContext } from '../../contexts/TagContext';
 
-function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props para filtros
+
+function LeftSidebar({ activeTagFilters, onTagFilterChange }) {
+    const { currentUser, fetchUserProfile } = useContext(UserContext); // Obtener fetchUserProfile para refrescar después de crear Tag
     const [isAddNewDropdownOpen, setIsAddNewDropdownOpen] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [modalContent, setModalContent] = useState(null);
     const [modalTitle, setModalTitle] = useState('');
+    const navigate = useNavigate();
+
+    // No necesitamos tagListVersion si TagFilter se actualiza basado en currentUser.settings
+    // const { refreshQuests } = useContext(QuestContext) || { refreshQuests: () => console.warn("QuestContext not provided") };
 
     const toggleAddNewDropdown = () => setIsAddNewDropdownOpen(!isAddNewDropdownOpen);
     
+    const handleSuccessfulSubmit = async (entityType) => {
+        setShowModal(false);
+        console.log(`${entityType} submitted from sidebar modal`);
+        
+        if (entityType === 'Tag' || entityType === 'Quest') {
+            // Forzar un refresh del perfil del usuario para que los nuevos tags/quests
+            // estén disponibles globalmente (ej. para QuestSelector, TagFilter si no se le pasan los tags directamente).
+            // Para TagFilter, si obtiene los tags de currentUser.settings.all_tags, esto lo actualizaría.
+            // O, si TagFilter carga sus propios tags, necesita su propio trigger/refetch.
+            // Si fetchUserProfile actualiza currentUser.tags y QuestContext usa currentUser.
+            if (fetchUserProfile) await fetchUserProfile(); 
+        }
+        // Aquí podríamos añadir lógica de refresco más granular si tenemos contextos o funciones específicas.
+        // Por ejemplo, si las listas de misiones en el Dashboard necesitan refrescarse:
+        // if (['PoolMission', 'ScheduledMission', 'HabitTemplate'].includes(entityType) && refreshDashboardData) {
+        // refreshDashboardData();
+        // }
+    };
+
     const openModalWithForm = (formType) => {
         setIsAddNewDropdownOpen(false); 
         switch (formType) {
@@ -31,7 +56,7 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
                 setModalTitle('Create New Quest');
                 setModalContent(
                     <QuestForm
-                        onFormSubmit={() => { console.log('Quest submitted from sidebar modal'); setShowModal(false); /* TODO: Refresh relevant data if needed by sidebar or other components */ }}
+                        onFormSubmit={() => handleSuccessfulSubmit('Quest')}
                         onCancel={() => setShowModal(false)}
                     />
                 );
@@ -40,7 +65,7 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
                  setModalTitle('Create New Tag');
                 setModalContent(
                     <TagForm
-                        onFormSubmit={() => { console.log('Tag submitted from sidebar modal'); setShowModal(false); /* TODO: Refresh tags list for TagFilter if not automatically handled by TagFilter itself */ }}
+                        onFormSubmit={() => handleSuccessfulSubmit('Tag')}
                         onCancel={() => setShowModal(false)}
                     />
                 );
@@ -48,8 +73,8 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
             case 'PoolMission':
                  setModalTitle('Create New Pool Mission');
                  setModalContent(
-                    <PoolMissionForm // Asegúrate que PoolMissionForm no dependa de missionToEdit si es para crear
-                        onFormSubmit={() => { console.log('Pool Mission submitted from sidebar modal'); setShowModal(false); /* TODO: Refresh pool missions in dashboard/calendar pool */ }}
+                    <PoolMissionForm
+                        onFormSubmit={() => handleSuccessfulSubmit('PoolMission')}
                         onCancel={() => setShowModal(false)}
                     />
                  );
@@ -58,8 +83,8 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
                  setModalTitle('Create New Scheduled Mission');
                  setModalContent(
                     <ScheduledMissionForm 
-                        slotInfo={{ start: new Date(), end: new Date(new Date().getTime() + 60 * 60 * 1000) }} // Default slot example
-                        onFormSubmit={() => { console.log('Scheduled Mission submitted from sidebar modal'); setShowModal(false); /* TODO: Refresh calendar/list */}}
+                        slotInfo={{ start: new Date(), end: new Date(new Date().getTime() + 60 * 60 * 1000) }} 
+                        onFormSubmit={() => handleSuccessfulSubmit('ScheduledMission')}
                         onCancel={() => setShowModal(false)}
                     />
                  );
@@ -67,16 +92,14 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
             case 'HabitTemplate':
                  setModalTitle('Create New Habit Template');
                  setModalContent(
-                    <HabitTemplateForm // Asegúrate que HabitTemplateForm no dependa de templateToEdit si es para crear
-                        onFormSubmit={() => { console.log('Habit Template submitted from sidebar modal'); setShowModal(false); /* TODO: Refresh templates */}}
+                    <HabitTemplateForm
+                        onFormSubmit={() => handleSuccessfulSubmit('HabitTemplate')}
                         onCancel={() => setShowModal(false)}
                     />
                  );
                 break;
             default:
-                setModalContent(null);
-                setModalTitle('');
-                return;
+                setModalContent(null); setModalTitle(''); return;
         }
         setShowModal(true);
     };
@@ -88,12 +111,15 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
         { to: "/habit-templates", label: "Habits", icon: "🔄" },
         { to: "/quests", label: "My Quests", icon: "🏆" },
         { to: "/tags", label: "My Tags", icon: "🏷️" },
-        // { to: "/settings", label: "Settings", icon: "⚙️" } // Placeholder
     ];
+     
+    const handleOpenTagSettings = () => {
+        navigate('/settings'); // Navegar a la página de Settings
+    };
 
     return (
         <aside className="left-sidebar-component">
-            <UserStatsDisplay /> {/* Este componente usa UserContext internamente */}
+            <UserStatsDisplay />
             
             <div className="add-new-button-container">
                 <button 
@@ -122,7 +148,7 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
                         key={link.to}
                         to={link.to} 
                         className={({ isActive }) => isActive ? "sidebar-nav-link-component active" : "sidebar-nav-link-component"}
-                        onClick={() => setIsAddNewDropdownOpen(false)} // Close dropdown on navigation
+                        onClick={() => setIsAddNewDropdownOpen(false)} 
                     >
                         <span role="img" aria-label={`${link.label} Icon`}>{link.icon}</span> {link.label}
                     </NavLink>
@@ -130,10 +156,13 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) { // Recibe props 
             </nav>
 
             <TagFilter
-                // availableTags se carga dentro de TagFilter por ahora
-                selectedTags={activeTagFilters}      // Usar prop de App.jsx
-                onFilterChange={onTagFilterChange}  // Usar prop de App.jsx
-                // onConfigOpen={() => navigate('/settings/filters')} // Futuro (Task 9.8)
+                // availableTags se carga dentro de TagFilter si no se provee.
+                // Opcionalmente, podríamos pasar todos los tags del usuario desde currentUser si /me los devolviera.
+                // availableTags={currentUser?.allUserTags || null} 
+                pinnedTagIdsToShow={currentUser?.settings?.sidebar_pinned_tag_ids || []} // Pasar los IDs pineados
+                selectedTags={activeTagFilters}      
+                onFilterChange={onTagFilterChange}  
+                onConfigOpen={handleOpenTagSettings} 
             />
              {showModal && (
                 <Modal title={modalTitle} onClose={() => setShowModal(false)}>

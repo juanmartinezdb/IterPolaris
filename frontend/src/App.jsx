@@ -21,7 +21,7 @@ import DashboardPage from './pages/DashboardPage';
 import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
 import HabitTemplatesPage from './pages/HabitTemplatesPage';
 import CalendarPage from './pages/CalendarPage';
-// import SettingsPage from './pages/SettingsPage'; 
+import SettingsPage from './pages/SettingsPage'; 
 
 import './App.css'; 
 import './index.css'; 
@@ -153,7 +153,7 @@ function App() {
                             />
                             <Route path="/quests" element={<QuestPage />} /> {/* Quests y Tags no se filtran por tags */}
                             <Route path="/tags" element={<TagsPage />} />
-                            {/* <Route path="/settings" element={<SettingsPage />} /> */}
+                            <Route path="/settings" element={<SettingsPage />} />
                         </Route>
 
                         <Route path="*" element={

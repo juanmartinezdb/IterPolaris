@@ -5,55 +5,52 @@ import axios from 'axios';
 const API_USER_PROFILE_URL = `${import.meta.env.VITE_API_BASE_URL}/auth/me`;
 const API_ENERGY_BALANCE_URL = `${import.meta.env.VITE_API_BASE_URL}/gamification/energy-balance`;
 
-// frontend/src/contexts/UserContext.jsx
-// ... (imports) ...
-
 export const UserContext = createContext(null);
 
 export const UserProvider = ({ children }) => {
     const [currentUser, setCurrentUser] = useState(null);
     const [energyBalance, setEnergyBalance] = useState(null);
-    const [isLoadingProfile, setIsLoadingProfile] = useState(true); // Inicia como true
-    const [isLoadingEnergy, setIsLoadingEnergy] = useState(true);  // Inicia como true
+    const [isLoadingProfile, setIsLoadingProfile] = useState(true); 
+    const [isLoadingEnergy, setIsLoadingEnergy] = useState(true);  
     const [authError, setAuthError] = useState(null);
 
     const fetchUserProfile = useCallback(async (tokenOverride = null) => {
-        const token = tokenOverride || localStorage.getItem('authToken'); // Permite pasar un token (ej. post-login)
+        const token = tokenOverride || localStorage.getItem('authToken');
         
         if (!token) {
             setCurrentUser(null);
-            setEnergyBalance(null); // Limpiar también el balance de energía
+            setEnergyBalance(null); 
             setIsLoadingProfile(false);
-            setIsLoadingEnergy(false); // Asegurar que este también se ponga en false
+            setIsLoadingEnergy(false); 
             setAuthError(null);
-            // console.log("UserContext: No token, user set to null");
+            localStorage.removeItem('currentUser'); // Asegurarse de limpiar aquí también
             return;
         }
 
-        // console.log("UserContext: Token found, fetching profile...");
         setIsLoadingProfile(true);
         setAuthError(null);
         try {
             const response = await axios.get(API_USER_PROFILE_URL, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            setCurrentUser(response.data);
-            localStorage.setItem('currentUser', JSON.stringify(response.data));
-            // console.log("UserContext: Profile fetched", response.data);
+            // Asegurar que settings sea un objeto y tenga la clave esperada
+            const userData = response.data;
+            if (userData && typeof userData.settings !== 'object') {
+                userData.settings = { sidebar_pinned_tag_ids: [] }; // Default si es null o no es objeto
+            } else if (userData && userData.settings && !Array.isArray(userData.settings.sidebar_pinned_tag_ids)) {
+                userData.settings.sidebar_pinned_tag_ids = []; // Default si la clave no es un array
+            }
+
+
+            setCurrentUser(userData);
+            localStorage.setItem('currentUser', JSON.stringify(userData));
         } catch (err) {
             console.error("UserContext: Failed to fetch user profile:", err.response?.data || err.message);
             setCurrentUser(null);
             setEnergyBalance(null);
             localStorage.removeItem('currentUser');
-            // Considerar si remover el authToken aquí es muy agresivo. 
-            // Podría ser un error de red temporal.
-            // Mejor manejarlo en el interceptor de axios o en ProtectedRoute si el token es inválido.
-            // localStorage.removeItem('authToken'); 
+            localStorage.removeItem('authToken'); // Si falla el fetch del perfil, el token podría ser inválido
             setAuthError(err.response?.data?.error || "Could not load user data.");
-            if (err.response?.status === 401) {
-                // Token inválido, limpiar y posiblemente forzar logout en App.jsx
-                localStorage.removeItem('authToken');
-            }
         } finally {
             setIsLoadingProfile(false);
         }
@@ -61,99 +58,75 @@ export const UserProvider = ({ children }) => {
 
     const fetchEnergyBalanceData = useCallback(async () => {
         const token = localStorage.getItem('authToken');
-        // Modificado: solo cargar si hay currentUser y token
         if (!token || !currentUser) { 
             setEnergyBalance(null);
             setIsLoadingEnergy(false);
             return;
         }
-        // console.log("UserContext: Fetching energy balance for user:", currentUser?.id);
         setIsLoadingEnergy(true);
         try {
             const response = await axios.get(API_ENERGY_BALANCE_URL, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             setEnergyBalance(response.data);
-            // console.log("UserContext: Energy balance fetched", response.data);
         } catch (err) {
             console.error("UserContext: Failed to fetch energy balance:", err);
             setEnergyBalance(null);
         } finally {
             setIsLoadingEnergy(false);
         }
-    }, [currentUser]); // Depende de currentUser
+    }, [currentUser]);
 
     useEffect(() => {
-        // console.log("UserContext: Initial profile fetch effect");
         fetchUserProfile();
     }, [fetchUserProfile]);
 
     useEffect(() => {
-        // console.log("UserContext: Energy balance fetch effect, currentUser changed:", currentUser);
-        if (currentUser && !isLoadingProfile) { // Asegurarse que el perfil ya se intentó cargar
+        if (currentUser && !isLoadingProfile) { 
             fetchEnergyBalanceData();
         } else if (!currentUser) {
-            setEnergyBalance(null); // Limpiar si no hay usuario
-            setIsLoadingEnergy(false); // No hay energía que cargar
+            setEnergyBalance(null); 
+            setIsLoadingEnergy(false); 
         }
     }, [currentUser, isLoadingProfile, fetchEnergyBalanceData]);
 
     const refreshUserStatsAndEnergy = useCallback(async (updatedUserDataFromAction) => {
-        // console.log("UserContext: Refreshing user stats and energy. Updated data from action:", updatedUserDataFromAction);
-        let userToUpdateFrom = currentUser;
-
+        // Primero, actualiza el perfil del usuario para obtener los últimos puntos, nivel, y settings.
+        // Si updatedUserDataFromAction tiene datos, se usarán para una actualización optimista local antes del fetch.
         if (updatedUserDataFromAction && updatedUserDataFromAction.total_points !== undefined) {
-            const newLocalUser = { ...currentUser, ...updatedUserDataFromAction };
-            setCurrentUser(newLocalUser);
-            localStorage.setItem('currentUser', JSON.stringify(newLocalUser));
-            userToUpdateFrom = newLocalUser; // Usar estos datos para el refresh de energía
-        } else {
-            await fetchUserProfile(); // Esto actualizará currentUser internamente
-             // Necesitamos esperar a que fetchUserProfile termine para tener el currentUser más reciente
-             // Esto es un poco complicado sin async/await directo en el setter de estado.
-             // Una alternativa es que fetchUserProfile devuelva el usuario.
+             // Actualización optimista local
+            setCurrentUser(prevUser => {
+                const newUser = { ...prevUser, ...updatedUserDataFromAction };
+                localStorage.setItem('currentUser', JSON.stringify(newUser));
+                return newUser;
+            });
         }
         
-        // Forzar refetch de energía después de que currentUser se haya actualizado.
-        // El useEffect que depende de 'currentUser' para fetchEnergyBalanceData se encargará de esto.
-        // Si la actualización fue local (con updatedUserDataFromAction), y currentUser ya está actualizado,
-        // el siguiente useEffect [currentUser, fetchEnergyBalanceData] lo tomará.
-        // Si fue un fetchUserProfile completo, también.
-        // Para asegurar que se llama *después* de que el estado de currentUser se propague:
-        if (userToUpdateFrom) { // Si tenemos un usuario después de la actualización
-            // Llamar directamente a fetchEnergyBalanceData o depender del useEffect.
-            // Llamar directamente aquí puede ser más determinista.
-            const token = localStorage.getItem('authToken');
-            if (token) {
-                setIsLoadingEnergy(true);
-                try {
-                    const response = await axios.get(API_ENERGY_BALANCE_URL, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    setEnergyBalance(response.data);
-                } catch (err) {
-                    console.error("UserContext: Failed to fetch energy balance post-refresh:", err);
-                    setEnergyBalance(null);
-                } finally {
-                    setIsLoadingEnergy(false);
-                }
-            }
-        } else { // Si no hay usuario (ej. logout), limpiar
-            setEnergyBalance(null);
-            setIsLoadingEnergy(false);
-        }
+        // Siempre refresca el perfil del backend para asegurar consistencia
+        await fetchUserProfile(); 
+        // fetchEnergyBalanceData se llamará automáticamente por el useEffect que depende de currentUser
 
-    }, [currentUser, fetchUserProfile, fetchEnergyBalanceData]);
+    }, [fetchUserProfile]); // fetchEnergyBalanceData no necesita estar aquí si el useEffect de arriba lo maneja
     
     const updateLocalCurrentUser = useCallback((newUserData) => {
         const token = localStorage.getItem('authToken');
-        if (token) { // Solo actualizar si sigue habiendo un token
+        if (token) { 
             const storedUserStr = localStorage.getItem('currentUser');
             let StoredUser = null;
             if (storedUserStr) {
                 try { StoredUser = JSON.parse(storedUserStr); } catch(e) { console.error(e); }
             }
-            const updatedUser = { ...StoredUser, ...currentUser, ...newUserData }; // Combinar todas las fuentes
+            // Asegurar que settings sea un objeto con la clave esperada
+            let updatedSettings = newUserData.settings || StoredUser?.settings || {};
+            if (typeof updatedSettings !== 'object' || updatedSettings === null) {
+                updatedSettings = { sidebar_pinned_tag_ids: [] };
+            }
+            if (!Array.isArray(updatedSettings.sidebar_pinned_tag_ids)) {
+                updatedSettings.sidebar_pinned_tag_ids = [];
+            }
+            newUserData.settings = updatedSettings;
+
+            const updatedUser = { ...StoredUser, ...currentUser, ...newUserData }; 
             setCurrentUser(updatedUser);
             localStorage.setItem('currentUser', JSON.stringify(updatedUser));
         } else {
@@ -165,12 +138,12 @@ export const UserProvider = ({ children }) => {
     const contextValue = {
         currentUser,
         energyBalance,
-        isLoadingProfile, // Exponer isLoadingProfile
-        isLoadingEnergy,  // Exponer isLoadingEnergy
+        isLoadingProfile, 
+        isLoadingEnergy,  
         authError,
-        refreshUserStatsAndEnergy,
-        fetchUserProfile,
-        updateLocalCurrentUser
+        refreshUserStatsAndEnergy, // Esta función ahora también refrescará el perfil
+        fetchUserProfile, // Exportar para que otras partes puedan forzar un refresh del perfil
+        updateLocalCurrentUser // Para actualizaciones locales optimistas si es necesario
     };
 
     return (
