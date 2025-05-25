@@ -1,17 +1,15 @@
 // frontend/src/components/layout/TopBar.jsx
 import React, { useState, useContext, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // useNavigate ya está
 import { UserContext } from '../../contexts/UserContext';
 import EnergyBalanceBar from '../gamification/EnergyBalanceBar';
-// Ensure layout.css is created and imported
-// import '../../styles/layout.css'; // Will be created next
+// import '../../styles/layout.css'; // Ya importado en App.jsx o globalmente
 
 function TopBar({ isAuthenticated, handleLogout }) {
-    const navigate = useNavigate();
     const { currentUser } = useContext(UserContext);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
-    // const navigate = useNavigate(); // Keep for future use (Profile/Settings)
+    const navigate = useNavigate(); // Usar hook
 
     const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
 
@@ -20,20 +18,16 @@ function TopBar({ isAuthenticated, handleLogout }) {
         handleLogout();
     };
     
-    // Placeholder actions for Profile and Settings
     const handleProfileClick = () => {
         setDropdownOpen(false);
-        alert("Profile page - Coming soon!");
-        // navigate('/profile'); // PRD: My Profile (read-only for MVP) - TBD in later tasks
+        navigate('/profile'); // <--- CAMBIO AQUÍ
     };
 
     const handleSettingsClick = () => {
         setDropdownOpen(false);
-        navigate('/settings');
-        // navigate('/settings'); // PRD: Settings (minimal, including Tag filter configuration) - Part of Task 9
+        navigate('/settings'); // <--- CAMBIO AQUÍ (ya lo tenías, pero confirmo)
     };
 
-    // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -44,9 +38,8 @@ function TopBar({ isAuthenticated, handleLogout }) {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-
     return (
-        <div className="main-header-layout"> {/* Renamed to avoid conflict with App.css's old .main-header */}
+        <div className="main-header-layout">
             <div className="top-bar-component">
                 <Link to={isAuthenticated ? "/dashboard" : "/"} className="app-logo-layout">
                     <img src="/assets/logo_iter_polaris_light.png" alt="Iter Polaris Logo" className="themed-logo-img" />
@@ -70,7 +63,7 @@ function TopBar({ isAuthenticated, handleLogout }) {
                                 )}
                             </button>
                             {dropdownOpen && (
-                                <ul className="dropdown-menu">
+                                <ul className={`dropdown-menu ${dropdownOpen ? 'open' : ''}`}> {/* Asegurar clase 'open' */}
                                     <li className="dropdown-user-info">
                                         Signed in as <br /><strong>{currentUser?.name || 'User'}</strong>
                                     </li>

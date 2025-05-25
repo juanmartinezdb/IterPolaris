@@ -22,6 +22,7 @@ import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
 import HabitTemplatesPage from './pages/HabitTemplatesPage';
 import CalendarPage from './pages/CalendarPage';
 import SettingsPage from './pages/SettingsPage'; 
+import ProfilePage from './pages/ProfilePage';
 
 import './App.css'; 
 import './index.css'; 
@@ -154,6 +155,7 @@ function App() {
                             <Route path="/quests" element={<QuestPage />} /> {/* Quests y Tags no se filtran por tags */}
                             <Route path="/tags" element={<TagsPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
+                             <Route path="/profile" element={<ProfilePage />} /> 
                         </Route>
 
                         <Route path="*" element={

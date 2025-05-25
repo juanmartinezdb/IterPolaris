@@ -1,0 +1,111 @@
+/* frontend/src/styles/profile.css */
+.profile-page {
+    max-width: 700px; /* Ancho moderado para la tarjeta de perfil */
+    margin: 2rem auto;
+    padding: 1.5rem 2rem;
+}
+
+.profile-page h2 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 2em;
+}
+
+.profile-card {
+    background-color: var(--color-bg-content-area, #172A45);
+    border-radius: var(--border-radius-standard, 8px);
+    padding: 2rem;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--color-accent-gold-hover, #5b4b3a);
+    display: flex;
+    flex-direction: column; /* Apilar avatar y detalles en pantallas pequeñas */
+    align-items: center;
+    gap: 2rem;
+}
+
+@media (min-width: 600px) { /* Para pantallas más grandes, avatar a la izquierda */
+    .profile-card {
+        flex-direction: row;
+        align-items: flex-start;
+    }
+}
+
+.profile-avatar-section {
+    position: relative; /* Para el botón de edición futuro */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.profile-avatar-img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--color-accent-gold, #B08D57);
+    box-shadow: 0 0 10px rgba(176, 141, 87, 0.5); /* Resplandor dorado */
+}
+
+.profile-avatar-placeholder {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3em; /* Letra grande */
+    font-family: var(--font-primary);
+    border: 3px solid var(--color-accent-gold-hover);
+}
+
+.profile-details-section {
+    flex-grow: 1;
+    width: 100%;
+}
+
+.profile-detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--color-bg-elevated, #21395A); /* Separador sutil */
+    font-size: 0.95em;
+}
+.profile-detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: bold;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    margin-right: 1rem;
+}
+
+.detail-value {
+    color: var(--color-text-on-dark, #EAEAEA);
+    text-align: right;
+}
+
+.profile-divider {
+    border: none;
+    height: 1px;
+    background-color: var(--color-accent-gold);
+    opacity: 0.3;
+    margin: 0.75rem 0;
+}
+
+.profile-page.loading p,
+.profile-page.error p {
+    text-align: center;
+    font-size: 1.1em;
+    color: var(--color-text-on-dark-muted);
+    margin-top: 2rem;
+}
+.profile-page.error p {
+    color: var(--color-error);
+}
