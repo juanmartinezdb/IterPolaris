@@ -77,6 +77,9 @@ def create_app(config_class=None):
 
     from .api.gamification_routes import gamification_bp
     app.register_blueprint(gamification_bp)
+
+    from .api.dashboard_routes import dashboard_bp 
+    app.register_blueprint(dashboard_bp)   
     
     @app.route('/')
     def hello():

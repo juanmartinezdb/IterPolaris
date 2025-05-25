@@ -1,33 +1,28 @@
 // frontend/src/pages/DashboardPage.jsx
 import React, { useContext, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserContext } from '../contexts/UserContext'; 
+import { UserContext } from '../contexts/UserContext'; //
 
-import MissionPoolPanel from '../components/dashboard/MissionPoolPanel';
-import TodaysHabitsPanel from '../components/dashboard/TodaysHabitsPanel'; 
-import UpcomingMissionsPanel from '../components/dashboard/UpcomingMissionsPanel';
+// Implemented Panels
+import MissionPoolPanel from '../components/dashboard/MissionPoolPanel'; //
+import TodaysHabitsPanel from '../components/dashboard/TodaysHabitsPanel';  //
+import ProximosPanel from '../components/dashboard/ProximosPanel'; 
+import ProjectTasksPanel from '../components/dashboard/ProjectTasksPanel';
+import TodaysAgendaPanel from '../components/dashboard/TodaysAgendaPanel';
+import RecentActivityPanel from '../components/dashboard/RecentActivityPanel';
+import RescueMissionsPanel from '../components/dashboard/RescueMissionsPanel';
 
-const ProjectTasksPanel = ({ config, activeTagFilters, title }) => ( 
-    <div className="dashboard-panel project-tasks-panel">
-        <h3>{title || `Project Panel`}</h3> {/* Use title prop */}
-        <p className="empty-state-message">Project-specific content for Quest ID: {config.quest_id} will appear here.</p>
-        <p style={{fontSize: '0.8em', textAlign: 'center', color: 'var(--color-text-on-dark-muted)'}}>(Panel Type: {config.panel_type}, Order: {config.order}, ID: {config.id})</p>
-    </div>
-);
+// Placeholder Panels
+import TodayLogbookEntriesPanel from '../components/dashboard/TodayLogbookEntriesPanel';
+import HabitStatisticsPanel from '../components/dashboard/HabitStatisticsPanel';
+import EnergyStatisticsPanel from '../components/dashboard/EnergyStatisticsPanel';
 
-const TodaysAgendaPanel = ({ config, activeTagFilters, title }) => ( 
-    <div className="dashboard-panel todays-agenda-panel">
-        <h3>{title || "Today's Full Agenda"}</h3> {/* Use title prop */}
-        <p className="empty-state-message">Today's full agenda (all-day, habits, timed) will appear here.</p>
-         <p style={{fontSize: '0.8em', textAlign: 'center', color: 'var(--color-text-on-dark-muted)'}}>(Panel Type: {config.panel_type}, Order: {config.order}, ID: {config.id})</p>
-    </div>
-);
 
-import '../App.css'; 
-import '../styles/dashboard.css'; 
+import '../App.css'; //
+import '../styles/dashboard.css'; //
 
 function DashboardPage({ activeTagFilters }) {
-    const { currentUser } = useContext(UserContext);
+    const { currentUser } = useContext(UserContext); //
     const [renderedPanelsList, setRenderedPanelsList] = useState([]);
     const userName = currentUser?.name || 'Adventurer';
 
@@ -38,25 +33,34 @@ function DashboardPage({ activeTagFilters }) {
                 .sort((a, b) => a.order - b.order);
 
             const panelsToRender = activePanelConfigs.map(panelConfig => {
-                // Props for the panel, EXCLUDING 'key'
                 const panelComponentProps = { 
                     config: panelConfig,
                     activeTagFilters: activeTagFilters,
-                    title: panelConfig.name // Pass user-defined name as title
+                    title: panelConfig.name 
                 };
 
-                // The 'key' prop is applied directly to the component instance
                 switch (panelConfig.panel_type) {
                     case "UPCOMING_MISSIONS":
-                        return <UpcomingMissionsPanel key={panelConfig.id} {...panelComponentProps} />;
+                        return <ProximosPanel key={panelConfig.id} {...panelComponentProps} />;
                     case "MISSION_POOL":
                         return <MissionPoolPanel key={panelConfig.id} {...panelComponentProps} />;
                     case "TODAY_HABITS":
                         return <TodaysHabitsPanel key={panelConfig.id} {...panelComponentProps} />;
-                    case "PROJECT_TASKS":
+                    case "PROJECT_TASKS": 
                         return <ProjectTasksPanel key={panelConfig.id} {...panelComponentProps} />;
-                    case "TODAY_AGENDA":
+                    case "TODAY_AGENDA":    
                         return <TodaysAgendaPanel key={panelConfig.id} {...panelComponentProps} />;
+                    case "RECENT_ACTIVITY":
+                        return <RecentActivityPanel key={panelConfig.id} {...panelComponentProps} />;
+                    case "RESCUE_MISSIONS":
+                        return <RescueMissionsPanel key={panelConfig.id} {...panelComponentProps} />;
+                    // Placeholders
+                    case "TODAY_LOGBOOK_ENTRIES":
+                        return <TodayLogbookEntriesPanel key={panelConfig.id} {...panelComponentProps} />;
+                    case "HABIT_STATISTICS":
+                        return <HabitStatisticsPanel key={panelConfig.id} {...panelComponentProps} />;
+                    case "ENERGY_STATISTICS":
+                        return <EnergyStatisticsPanel key={panelConfig.id} {...panelComponentProps} />;
                     default:
                         console.warn("Unknown panel type in dashboard config:", panelConfig.panel_type);
                         return (
@@ -69,10 +73,12 @@ function DashboardPage({ activeTagFilters }) {
             });
             setRenderedPanelsList(panelsToRender);
         } else {
+            // Default panels if no configuration exists
+            const defaultPanelProps = { activeTagFilters };
             setRenderedPanelsList([
-                <UpcomingMissionsPanel key="default-upcoming" activeTagFilters={activeTagFilters} title="Upcoming Missions"/>,
-                <TodaysHabitsPanel key="default-todayhabits" activeTagFilters={activeTagFilters} title="Today's Habits"/>,
-                <MissionPoolPanel key="default-pool" activeTagFilters={activeTagFilters} title="Mission Pool"/>
+                <ProximosPanel key="default-upcoming" {...defaultPanelProps} title="Upcoming Items"/>,
+                <TodaysHabitsPanel key="default-todayhabits" {...defaultPanelProps} title="Today's Habits"/>,
+                <MissionPoolPanel key="default-pool" {...defaultPanelProps} title="Mission Pool"/>
             ]);
         }
     }, [currentUser?.settings?.dashboard_panels, activeTagFilters]);

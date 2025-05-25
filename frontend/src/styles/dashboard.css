@@ -1,41 +1,44 @@
 /* frontend/src/styles/dashboard.css */
 .dashboard-page h2 {
-    margin-bottom: 0.5rem; /* Ajuste si es necesario */
+    margin-bottom: 0.5rem; 
 }
-.dashboard-page > p { /* El "Welcome back..." */
+.dashboard-page > p { 
     font-size: 1.1em;
     color: var(--color-text-on-dark-muted);
 }
 
-.dashboard-grid {
+.dashboard-panels-flow-container {
     display: flex;
-    flex-wrap: wrap; /* Para responsividad si las columnas no caben */
-    gap: 1.5rem; /* Espacio entre columnas/paneles */
+    flex-wrap: wrap;
+    gap: 1.5rem; 
     margin-top: 1.5rem;
+    align-items: flex-start; 
 }
-
-.dashboard-column {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem; /* Espacio entre paneles dentro de una columna */
-}
-
-.dashboard-column.main-column {
-    flex: 2; /* Que la columna principal ocupe más espacio */
-    min-width: 300px; /* Mínimo para que no se colapse demasiado */
-}
-.dashboard-column.sidebar-column {
-    flex: 1;
-    min-width: 280px;
-}
-
 
 .dashboard-panel {
-    background-color: var(--color-bg-content-area, #172A45); /* Ligeramente diferente al fondo general de la página */
+    background-color: var(--color-bg-content-area, #172A45);
     padding: 1rem 1.5rem;
     border-radius: var(--border-radius-standard, 8px);
     box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-    border-top: 3px solid var(--color-accent-gold); /* Un borde temático */
+    border-top: 3px solid var(--color-accent-gold); 
+    
+    flex: 1 1 calc(33.333% - 1.5rem); 
+    min-width: 320px; 
+    max-width: calc(50% - 0.75rem); 
+    display: flex;
+    flex-direction: column;
+}
+@media (max-width: 1200px) { 
+    .dashboard-panel {
+        flex-basis: calc(50% - 0.75rem); 
+        max-width: calc(50% - 0.75rem);
+    }
+}
+@media (max-width: 768px) { 
+    .dashboard-panel {
+        flex-basis: 100%;
+        max-width: 100%;
+    }
 }
 
 .dashboard-panel h3 {
@@ -48,3 +51,289 @@
     font-size: 1.3em;
 }
 
+.panel-section {
+    margin-bottom: 1rem;
+}
+.panel-section:last-child {
+    margin-bottom: 0;
+}
+.panel-section h4 {
+    font-family: var(--font-secondary);
+    color: var(--color-text-on-dark-muted);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px dashed var(--color-bg-elevated);
+}
+
+.panel-list-condensed {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 280px; 
+    overflow-y: auto;
+}
+
+.panel-list-condensed .upcoming-item,
+.panel-list-condensed .habit-occurrence-item,
+.panel-list-condensed .pool-mission-item {
+    padding: 0.6rem 0.8rem; 
+    margin-bottom: 0.5rem;
+    font-size: 0.9em; 
+}
+.panel-list-condensed .upcoming-item-title,
+.panel-list-condensed .habit-occurrence-title,
+.panel-list-condensed .pool-mission-title {
+    font-size: 0.95em; 
+}
+.panel-list-condensed .action-btn { 
+    width: 24px;
+    height: 24px;
+    font-size: 0.8em;
+}
+.panel-list-condensed .habit-occurrence-actions .status-btn { 
+    width: 26px;
+    height: 26px;
+    font-size: 0.85em;
+}
+.panel-list-condensed .pool-mission-actions button { 
+    padding: 0.3rem 0.6rem; 
+    font-size: 0.8em;
+}
+
+.empty-state-message { 
+    text-align: center;
+    font-style: italic;
+    color: var(--color-text-on-dark-muted);
+    padding: 1rem 0.5rem;
+    font-size: 0.9em;
+}
+
+/* Styles for ProximosPanel Tabs */
+.panel-tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover);
+}
+.tab-button {
+    font-family: var(--font-secondary);
+    font-size: 0.9em;
+    padding: 0.5rem 1rem;
+    border: none;
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted);
+    cursor: pointer;
+    position: relative; /* For the active indicator */
+    transition: color 0.2s ease;
+}
+.tab-button:hover {
+    color: var(--color-accent-gold);
+}
+.tab-button.active {
+    color: var(--color-accent-gold);
+    font-weight: bold;
+}
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; /* Align with the panel's border-bottom */
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-accent-gold);
+}
+
+/* Rescue Mission Panel Specifics */
+.rescue-missions-panel .action-btn { /* Example styling for rescue button */
+    border-color: var(--color-accent-secondary) !important;
+    color: var(--color-accent-secondary) !important;
+}
+.rescue-missions-panel .action-btn:hover {
+    background-color: rgba(var(--color-accent-secondary-rgb, 80, 200, 120), 0.15) !important;
+}
+
+.panel-tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover);
+}
+.tab-button {
+    font-family: var(--font-secondary);
+    font-size: 0.9em;
+    padding: 0.5rem 1rem;
+    border: none;
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted);
+    cursor: pointer;
+    position: relative; 
+    transition: color 0.2s ease;
+    border-radius: var(--border-radius-button) var(--border-radius-button) 0 0; /* Rounded top corners */
+}
+.tab-button:hover {
+    color: var(--color-accent-gold);
+    background-color: var(--color-bg-elevated); /* Subtle hover background */
+}
+.tab-button.active {
+    color: var(--color-accent-gold);
+    font-weight: bold;
+    background-color: var(--color-bg-elevated); /* Match active tab background */
+}
+.tab-button.active::after { /* Active indicator line */
+    content: '';
+    position: absolute;
+    bottom: -1px; 
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-accent-gold);
+}
+
+/* Rescue Mission Panel Specifics */
+.rescue-missions-panel .action-btn.rescue-action-btn { /* For the main rescue action button */
+    border-color: var(--color-accent-secondary) !important;
+    color: var(--color-accent-secondary) !important;
+    background-color: transparent;
+    border-width: 1px;
+    border-style: solid;
+    padding: 0.4rem 0.8rem !important; /* Ensure consistent padding */
+    font-size: 0.9em !important; /* Ensure consistent font size */
+    border-radius: var(--border-radius-button) !important;
+}
+.rescue-missions-panel .action-btn.rescue-action-btn:hover {
+    background-color: rgba(80, 200, 120, 0.15) !important; /* Use accent-secondary for hover */
+    color: var(--color-accent-secondary) !important;
+}
+.rescue-missions-panel .upcoming-item-actions .action-btn { /* For other smaller icon buttons if any */
+     width: 26px;
+     height: 26px;
+}
+
+
+/* Recent Activity Panel - Undo Button */
+.recent-activity-panel .action-btn { /* For the undo button */
+    border-color: var(--color-warning) !important;
+    color: var(--color-warning) !important;
+    background-color: transparent;
+    font-size: 1.1em; /* Make undo icon a bit larger */
+}
+.recent-activity-panel .action-btn:hover {
+    background-color: rgba(255, 215, 0, 0.15) !important; /* Yellowish hover for undo */
+     color: var(--color-warning) !important;
+}
+
+/* General Panel list item adjustments for actions visibility */
+.panel-list-condensed .upcoming-item-actions {
+    opacity: 0.6; /* Dim actions slightly by default */
+    transition: opacity 0.2s ease-in-out;
+}
+.panel-list-condensed .upcoming-item:hover .upcoming-item-actions {
+    opacity: 1; /* Full opacity on hover of the item */
+}
+
+/* Styles for ProximosPanel Tabs */
+.panel-tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover);
+}
+.tab-button {
+    font-family: var(--font-secondary);
+    font-size: 0.9em;
+    padding: 0.5rem 1rem;
+    border: none;
+    background-color: transparent;
+    color: var(--color-text-on-dark-muted);
+    cursor: pointer;
+    position: relative; 
+    transition: color 0.2s ease, background-color 0.2s ease; /* Added background-color transition */
+    border-radius: var(--border-radius-button) var(--border-radius-button) 0 0; 
+}
+.tab-button:hover {
+    color: var(--color-accent-gold);
+    background-color: var(--color-bg-elevated); 
+}
+.tab-button.active {
+    color: var(--color-accent-gold);
+    font-weight: bold;
+    background-color: var(--color-bg-elevated); 
+}
+.tab-button.active::after { 
+    content: '';
+    position: absolute;
+    bottom: -1px; 
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-accent-gold);
+}
+
+/* Rescue Mission Panel Specifics */
+.rescue-missions-panel .action-btn.rescue-action-btn { 
+    border-color: var(--color-accent-secondary) !important;
+    color: var(--color-accent-secondary) !important;
+    background-color: transparent;
+    border-width: 1px;
+    border-style: solid;
+    padding: 0.4rem 0.8rem !important; 
+    font-size: 0.9em !important; 
+    border-radius: var(--border-radius-button) !important;
+}
+.rescue-missions-panel .action-btn.rescue-action-btn:hover {
+    background-color: rgba(80, 200, 120, 0.15) !important; 
+    color: var(--color-accent-secondary) !important;
+}
+.rescue-missions-panel .upcoming-item-actions .action-btn { /* For smaller icon buttons */
+     width: auto; /* Let content define width for text buttons */
+     height: 28px; /* Consistent height */
+     padding: 0 0.5rem; /* Padding for text buttons */
+}
+.rescue-missions-panel .upcoming-item-actions .action-btn[title="Edit & Activate"] { /* Specific for edit icon */
+    font-size: 1em; /* Adjust if needed */
+    padding: 0.2rem 0.4rem;
+    min-width: 28px; /* Ensure it's clickable */
+}
+
+
+/* Recent Activity Panel - Undo Button */
+.recent-activity-panel .action-btn { 
+    border-color: var(--color-warning) !important;
+    color: var(--color-warning) !important;
+    background-color: transparent;
+    font-size: 1.1em; 
+    border-radius: 50% !important; /* Make it circular like other action buttons */
+    width: 26px !important;
+    height: 26px !important;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.recent-activity-panel .action-btn:hover {
+    background-color: rgba(255, 215, 0, 0.15) !important; 
+     color: var(--color-warning) !important;
+}
+
+.panel-list-condensed .upcoming-item-actions {
+    opacity: 0.6; 
+    transition: opacity 0.2s ease-in-out;
+}
+.panel-list-condensed .upcoming-item:hover .upcoming-item-actions {
+    opacity: 1; 
+}
+
+/* Panel Flow Layout Refinements */
+.dashboard-panels-flow-container {
+    display: grid; /* Changed to grid */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); /* Responsive columns */
+    gap: 1.5rem;
+    align-items: flex-start; /* Aligns items at the start of their grid area in the cross axis */
+}
+
+.dashboard-panel {
+    /* Removed flex properties, grid handles sizing */
+    /* min-width and max-width are now controlled by grid-template-columns */
+    /* border-top color is dynamically applied in ProjectTasksPanel based on questInfo?.color */
+}

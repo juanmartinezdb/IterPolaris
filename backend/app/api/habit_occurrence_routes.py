@@ -208,3 +208,36 @@ def update_habit_occurrence_status(occurrence_id):
         db.session.rollback()
         current_app.logger.error(f"Error updating status for habit occurrence {occurrence_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update habit occurrence status"}), 500
+
+
+@habit_occurrence_bp.route('/<uuid:occurrence_id>/undo-completion', methods=['PATCH'])
+@token_required
+def undo_habit_occurrence_completion(occurrence_id):
+    current_user = g.current_user
+    occurrence = HabitOccurrence.query.filter_by(id=occurrence_id, user_id=current_user.id).first()
+    if not occurrence: return jsonify({"error": "Habit Occurrence not found"}), 404
+    if occurrence.status != 'COMPLETED': return jsonify({"error": "Habit is not marked as completed"}), 400
+
+    try:
+        occurrence.status = 'PENDING'
+        occurrence.actual_completion_datetime = None # Clear completion time
+        # Revert points and deactivate energy log entry
+        update_user_stats_after_mission(
+            user=current_user,
+            points_to_change=-occurrence.points_value,
+            energy_value_for_log=occurrence.energy_value,
+            source_entity_type='HABIT_OCCURRENCE',
+            source_entity_id=occurrence.id,
+            reason_text=f"Undo completion of Habit: {occurrence.title}",
+            is_completion=False
+        )
+        db.session.commit()
+        return jsonify({
+            "message": "Habit Occurrence completion undone.",
+            "user_total_points": current_user.total_points,
+            "user_level": current_user.level
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error undoing HO {occurrence.id}: {e}", exc_info=True)
+        return jsonify({"error": "Failed to undo habit completion"}), 500

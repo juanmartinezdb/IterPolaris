@@ -441,3 +441,34 @@ def delete_scheduled_mission(mission_id):
     except Exception as e:
         db.session.rollback(); current_app.logger.error(f"Error deleting SM {mission_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to delete scheduled mission"}), 500
+    
+@scheduled_mission_bp.route('/<uuid:mission_id>/undo-completion', methods=['PATCH'])
+@token_required
+def undo_scheduled_mission_completion(mission_id):
+    current_user = g.current_user
+    mission = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
+    if not mission: return jsonify({"error": "Scheduled Mission not found"}), 404
+    if mission.status != 'COMPLETED': return jsonify({"error": "Mission is not marked as completed"}), 400
+
+    try:
+        mission.status = 'PENDING'
+        # Revert points and deactivate energy log entry
+        update_user_stats_after_mission(
+            user=current_user,
+            points_to_change=-mission.points_value, # Subtract points
+            energy_value_for_log=mission.energy_value, # Original energy value
+            source_entity_type='SCHEDULED_MISSION',
+            source_entity_id=mission.id,
+            reason_text=f"Undo completion of SM: {mission.title}",
+            is_completion=False # Indicates a reversion
+        )
+        db.session.commit()
+        return jsonify({
+            "message": "Scheduled Mission completion undone.",
+            "user_total_points": current_user.total_points,
+            "user_level": current_user.level
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error undoing SM {mission.id}: {e}", exc_info=True)
+        return jsonify({"error": "Failed to undo mission completion"}), 500

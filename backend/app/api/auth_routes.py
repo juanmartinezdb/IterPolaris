@@ -11,7 +11,11 @@ import uuid
 auth_bp = Blueprint('auth_bp', __name__, url_prefix='/api/auth')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-VALID_PANEL_TYPES = ["UPCOMING_MISSIONS", "PROJECT_TASKS", "TODAY_AGENDA", "MISSION_POOL", "TODAY_HABITS"] # Define valid panel types
+VALID_PANEL_TYPES = [
+    "UPCOMING_MISSIONS", "PROJECT_TASKS", "TODAY_AGENDA", 
+    "MISSION_POOL", "TODAY_HABITS", "RECENT_ACTIVITY", "RESCUE_MISSIONS",
+    "TODAY_LOGBOOK_ENTRIES", "HABIT_STATISTICS", "ENERGY_STATISTICS"
+]
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -166,7 +170,6 @@ def dev_reset_password():
     except Exception as e:
         db.session.rollback(); current_app.logger.error(f"Error resetting password for {email} (dev): {e}", exc_info=True)
         return jsonify({"error": "Password reset failed due to an internal server error"}), 500
-
 @auth_bp.route('/me/settings', methods=['PUT'])
 @token_required
 def update_user_settings():
@@ -176,90 +179,83 @@ def update_user_settings():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    if current_user.settings is None:
-        current_user.settings = {}
+    current_settings = current_user.settings if isinstance(current_user.settings, dict) else {}
     
-    # Ensure base structure for settings if completely missing
-    if not isinstance(current_user.settings, dict):
-        current_user.settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
-    if 'sidebar_pinned_tag_ids' not in current_user.settings:
-        current_user.settings['sidebar_pinned_tag_ids'] = []
-    if 'dashboard_panels' not in current_user.settings:
-        current_user.settings['dashboard_panels'] = []
-
     new_settings_payload = data.get('settings')
-    settings_changed = False
+    if not isinstance(new_settings_payload, dict):
+        return jsonify({"error": "'settings' object is required in payload."}), 400
 
-    if isinstance(new_settings_payload, dict):
-        # Handle sidebar_pinned_tag_ids
-        pinned_tags_ids_str = new_settings_payload.get('sidebar_pinned_tag_ids')
-        if pinned_tags_ids_str is not None: 
-            if not isinstance(pinned_tags_ids_str, list):
-                return jsonify({"error": "sidebar_pinned_tag_ids must be a list of tag UUID strings."}), 400
+    # Handle sidebar_pinned_tag_ids
+    pinned_tags_ids_str = new_settings_payload.get('sidebar_pinned_tag_ids')
+    if pinned_tags_ids_str is not None:
+        if not isinstance(pinned_tags_ids_str, list):
+            return jsonify({"errors": {"sidebar_pinned_tag_ids": "sidebar_pinned_tag_ids must be a list."}}), 400
+        valid_pinned_tag_uuids = []
+        for tag_id_str in pinned_tags_ids_str:
+            try:
+                tag_uuid = uuid.UUID(str(tag_id_str))
+                tag_exists = Tag.query.filter_by(id=tag_uuid, user_id=current_user.id).first()
+                if not tag_exists:
+                    return jsonify({"errors": {"sidebar_pinned_tag_ids": f"Invalid or non-existent tag_id: {tag_id_str}"}}), 400
+                valid_pinned_tag_uuids.append(str(tag_uuid))
+            except ValueError:
+                return jsonify({"errors": {"sidebar_pinned_tag_ids": f"Invalid UUID format for tag_id: {tag_id_str}"}}), 400
+        current_settings['sidebar_pinned_tag_ids'] = valid_pinned_tag_uuids
+
+    # Handle dashboard_panels
+    dashboard_panels_payload = new_settings_payload.get('dashboard_panels')
+    if dashboard_panels_payload is not None:
+        if not isinstance(dashboard_panels_payload, list):
+            return jsonify({"errors": {"dashboard_panels": "dashboard_panels must be a list."}}), 400
+        
+        validated_panels = []
+        panel_ids_seen = set()
+        for panel_data in dashboard_panels_payload:
+            if not isinstance(panel_data, dict):
+                return jsonify({"errors": {"dashboard_panels": "Each panel item must be an object."}}), 400
             
-            valid_pinned_tag_uuids = []
-            for tag_id_str in pinned_tags_ids_str:
+            panel_id = panel_data.get('id')
+            panel_type = panel_data.get('panel_type')
+            panel_name = panel_data.get('name', '')
+            panel_order = panel_data.get('order')
+            panel_is_active = panel_data.get('is_active') # Should always be true if in this list from frontend logic
+            panel_quest_id_str = panel_data.get('quest_id')
+
+            if not panel_id: return jsonify({"errors": {"dashboard_panels": "Panel 'id' is required."}}), 400
+            try: panel_uuid = uuid.UUID(str(panel_id))
+            except ValueError: return jsonify({"errors": {"dashboard_panels": f"Panel 'id' ({panel_id}) is not a valid UUID."}}), 400
+            if panel_uuid in panel_ids_seen: return jsonify({"errors": {"dashboard_panels": f"Duplicate panel id found: {panel_id}"}}), 400
+            panel_ids_seen.add(panel_uuid)
+
+            if not panel_type or panel_type not in VALID_PANEL_TYPES:
+                return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} has invalid or missing 'panel_type'."}}), 400
+            if not isinstance(panel_name, str): return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} 'name' must be a string."}}), 400
+            if panel_order is None or not isinstance(panel_order, int): return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} 'order' must be an integer."}}), 400
+            if panel_is_active is None or not isinstance(panel_is_active, bool): return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} 'is_active' must be a boolean."}}), 400
+            
+            # Panel is active by definition if it's in the saved list from the frontend's activePanels
+            if not panel_is_active:
+                 return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} sent for saving should be active."}}), 400
+
+
+            validated_panel = {
+                "id": str(panel_uuid), "panel_type": panel_type, "name": panel_name.strip(),
+                "order": panel_order, "is_active": panel_is_active
+            }
+
+            if panel_type == "PROJECT_TASKS":
+                if not panel_quest_id_str: return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} of type PROJECT_TASKS requires a 'quest_id'."}}), 400
                 try:
-                    tag_uuid = uuid.UUID(str(tag_id_str)) 
-                    tag_exists = Tag.query.filter_by(id=tag_uuid, user_id=current_user.id).first()
-                    if not tag_exists:
-                        return jsonify({"error": f"Invalid or non-existent tag_id for pinned tags: {tag_id_str}"}), 400
-                    valid_pinned_tag_uuids.append(str(tag_uuid)) 
-                except ValueError:
-                    return jsonify({"error": f"Invalid UUID format for pinned tag_id: {tag_id_str}"}), 400
-            current_user.settings['sidebar_pinned_tag_ids'] = valid_pinned_tag_uuids
-            settings_changed = True
-
-        # Handle dashboard_panels
-        dashboard_panels_payload = new_settings_payload.get('dashboard_panels')
-        if dashboard_panels_payload is not None:
-            if not isinstance(dashboard_panels_payload, list):
-                return jsonify({"error": "dashboard_panels must be a list."}), 400
+                    panel_quest_uuid = uuid.UUID(str(panel_quest_id_str))
+                    quest_exists = Quest.query.filter_by(id=panel_quest_uuid, user_id=current_user.id).first()
+                    if not quest_exists: return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id}: Quest ID '{panel_quest_id_str}' not found."}}), 400
+                    validated_panel["quest_id"] = str(panel_quest_uuid)
+                except ValueError: return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id}: Invalid UUID for quest_id: {panel_quest_id_str}"}}), 400
+            elif panel_quest_id_str is not None : # quest_id should ONLY be present for PROJECT_TASKS
+                 return jsonify({"errors": {"dashboard_panels": f"Panel {panel_id} ('{panel_type}'): 'quest_id' should only be provided for PROJECT_TASKS."}}), 400
             
-            validated_panels = []
-            panel_ids_seen = set()
-            for panel_data in dashboard_panels_payload:
-                if not isinstance(panel_data, dict):
-                    return jsonify({"error": "Each item in dashboard_panels must be an object."}), 400
-                
-                panel_id = panel_data.get('id')
-                panel_type = panel_data.get('panel_type')
-                panel_name = panel_data.get('name', '') # Default to empty string
-                panel_order = panel_data.get('order')
-                panel_is_active = panel_data.get('is_active')
-                panel_quest_id_str = panel_data.get('quest_id')
-
-                if not panel_id or not isinstance(panel_id, str): return jsonify({"error": "Panel missing 'id' or id is not a string."}), 400
-                try: uuid.UUID(panel_id) # Validate UUID format for panel id
-                except ValueError: return jsonify({"error": f"Invalid UUID format for panel id: {panel_id}"}), 400
-                if panel_id in panel_ids_seen: return jsonify({"error": f"Duplicate panel id found: {panel_id}"}), 400
-                panel_ids_seen.add(panel_id)
-
-                if not panel_type or panel_type not in VALID_PANEL_TYPES:
-                    return jsonify({"error": f"Panel {panel_id} has invalid or missing 'panel_type'. Valid types are: {', '.join(VALID_PANEL_TYPES)}"}), 400
-                if not isinstance(panel_name, str): return jsonify({"error": f"Panel {panel_id} 'name' must be a string."}), 400
-                if panel_order is None or not isinstance(panel_order, int): return jsonify({"error": f"Panel {panel_id} missing 'order' or order is not an integer."}), 400
-                if panel_is_active is None or not isinstance(panel_is_active, bool): return jsonify({"error": f"Panel {panel_id} missing 'is_active' or is_active is not a boolean."}), 400
-
-                validated_panel = {
-                    "id": panel_id, "panel_type": panel_type, "name": panel_name.strip(),
-                    "order": panel_order, "is_active": panel_is_active
-                }
-
-                if panel_type == "PROJECT_TASKS":
-                    if not panel_quest_id_str: return jsonify({"error": f"Panel {panel_id} of type PROJECT_TASKS requires a 'quest_id'."}), 400
-                    try:
-                        panel_quest_uuid = uuid.UUID(str(panel_quest_id_str))
-                        quest_exists = Quest.query.filter_by(id=panel_quest_uuid, user_id=current_user.id).first()
-                        if not quest_exists: return jsonify({"error": f"Panel {panel_id}: Quest ID '{panel_quest_id_str}' not found or access denied."}), 400
-                        validated_panel["quest_id"] = str(panel_quest_uuid)
-                    except ValueError: return jsonify({"error": f"Panel {panel_id}: Invalid UUID format for quest_id: {panel_quest_id_str}"}), 400
-                elif "quest_id" in panel_data: # quest_id should only be present for PROJECT_TASKS
-                    return jsonify({"error": f"Panel {panel_id}: 'quest_id' should only be provided for PROJECT_TASKS panel type."}), 400
-                
-                validated_panels.append(validated_panel)
-            current_user.settings['dashboard_panels'] = validated_panels
-            settings_changed = True
+            validated_panels.append(validated_panel)
+        current_settings['dashboard_panels'] = validated_panels
             
     new_avatar_url = data.get('avatar_url')
     if new_avatar_url is not None: 
@@ -269,27 +265,20 @@ def update_user_settings():
         # No need to set settings_changed = True here, avatar is separate
 
     try:
-        if settings_changed : # Only mark settings as modified if the settings part of payload was processed
-             from sqlalchemy.orm.attributes import flag_modified
-             flag_modified(current_user, "settings")
-
+        from sqlalchemy.orm.attributes import flag_modified
+        current_user.settings = current_settings
+        flag_modified(current_user, "settings")
         db.session.commit()
         
-        final_settings = current_user.settings
-        if final_settings is None or not isinstance(final_settings, dict):
-            final_settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
-        if 'sidebar_pinned_tag_ids' not in final_settings: final_settings['sidebar_pinned_tag_ids'] = []
-        if 'dashboard_panels' not in final_settings: final_settings['dashboard_panels'] = []
-            
         return jsonify({
-            "message": "User data updated successfully.",
-            "settings": final_settings,
-            "avatar_url": current_user.avatar_url
+            "message": "User settings updated successfully.",
+            "settings": current_user.settings, # Return the updated settings
+            "avatar_url": current_user.avatar_url 
         }), 200
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error updating settings for user {current_user.id}: {e}", exc_info=True)
-        return jsonify({"error": "Failed to update settings due to an internal error."}), 500
+        return jsonify({"error": "Failed to update settings due to an internal server error."}), 500
 
 @auth_bp.route('/me/avatar', methods=['POST'])
 @token_required

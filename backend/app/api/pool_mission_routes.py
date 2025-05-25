@@ -460,3 +460,35 @@ def toggle_pool_mission_focus(mission_id):
         db.session.rollback()
         current_app.logger.error(f"Error toggling focus for pool mission {mission_id} user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to toggle focus status due to an internal error"}), 500
+    
+
+@pool_mission_bp.route('/<uuid:mission_id>/undo-completion', methods=['PATCH'])
+@token_required
+def undo_pool_mission_completion(mission_id):
+    current_user = g.current_user
+    mission = PoolMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
+    if not mission: return jsonify({"error": "Pool Mission not found"}), 404
+    if mission.status != 'COMPLETED': return jsonify({"error": "Mission is not marked as completed"}), 400
+
+    try:
+        mission.status = 'PENDING'
+        # Revert points and deactivate energy log entry
+        update_user_stats_after_mission(
+            user=current_user,
+            points_to_change=-mission.points_value,
+            energy_value_for_log=mission.energy_value,
+            source_entity_type='POOL_MISSION',
+            source_entity_id=mission.id,
+            reason_text=f"Undo completion of PM: {mission.title}",
+            is_completion=False
+        )
+        db.session.commit()
+        return jsonify({
+            "message": "Pool Mission completion undone.",
+            "user_total_points": current_user.total_points,
+            "user_level": current_user.level
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error undoing PM {mission.id}: {e}", exc_info=True)
+        return jsonify({"error": "Failed to undo mission completion"}), 500
