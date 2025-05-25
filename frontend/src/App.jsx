@@ -21,12 +21,13 @@ import DashboardPage from './pages/DashboardPage';
 import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
 import HabitTemplatesPage from './pages/HabitTemplatesPage';
 import CalendarPage from './pages/CalendarPage';
-import SettingsPage from './pages/SettingsPage'; 
+import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
+import PoolMissionsPage from './pages/PoolMissionsPage';
 
-import './App.css'; 
-import './index.css'; 
-import './styles/layout.css'; 
+import './App.css';
+import './index.css';
+import './styles/layout.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -67,7 +68,7 @@ function App() {
                 : [...prevFilters, tagId]
         );
     };
-    
+
     useEffect(() => {
         if (currentUser?.settings?.sidebarTagFilters) {
             // setActiveTagFilters(currentUser.settings.sidebarTagFilters); 
@@ -75,7 +76,7 @@ function App() {
     }, [currentUser]);
 
     const handleAuthSuccess = async () => {
-        await fetchUserProfile(); 
+        await fetchUserProfile();
     };
 
     const handleLogout = async () => {
@@ -91,12 +92,12 @@ function App() {
         } finally {
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
-            setActiveTagFilters([]); 
-            await fetchUserProfile(); 
+            setActiveTagFilters([]);
+            await fetchUserProfile();
             navigate('/login');
         }
     };
-    
+
     useEffect(() => {
         const handleStorageChange = (event) => {
             if (event.key === 'authToken' || event.key === 'currentUser') {
@@ -106,7 +107,7 @@ function App() {
         window.addEventListener('storage', handleStorageChange);
         const token = localStorage.getItem('authToken');
         if (token && !currentUser && !isLoadingProfile) {
-             fetchUserProfile();
+            fetchUserProfile();
         }
         return () => {
             window.removeEventListener('storage', handleStorageChange);
@@ -120,12 +121,12 @@ function App() {
     return (
         <div className="app-container">
             <TopBar isAuthenticated={isAuthenticatedAndReady} handleLogout={handleLogout} />
-            
+
             <div className="app-body-layout">
                 {isAuthenticatedAndReady && (
-                    <LeftSidebar 
-                        activeTagFilters={activeTagFilters} 
-                        onTagFilterChange={handleTagFilterChange} 
+                    <LeftSidebar
+                        activeTagFilters={activeTagFilters}
+                        onTagFilterChange={handleTagFilterChange}
                     />
                 )}
                 <MainContentArea isAuthenticated={isAuthenticatedAndReady}>
@@ -136,26 +137,30 @@ function App() {
                         <Route path="/dev-password-reset" element={<DevPasswordResetForm />} />
 
                         <Route element={<ProtectedRoute />}>
-                            <Route 
-                                path="/dashboard" 
-                                element={<DashboardPage activeTagFilters={activeTagFilters} />} 
+                            <Route
+                                path="/dashboard"
+                                element={<DashboardPage activeTagFilters={activeTagFilters} />}
                             />
-                            <Route 
-                                path="/scheduled-missions" 
+                            <Route
+                                path="/scheduled-missions"
                                 element={<ScheduledMissionsPage activeTagFilters={activeTagFilters} />} // Pasar filtros
                             />
-                             <Route 
-                                path="/calendar" 
+                            <Route
+                                path="/pool-missions"
+                                element={<PoolMissionsPage activeTagFilters={activeTagFilters} />}
+                            />
+                            <Route
+                                path="/calendar"
                                 element={<CalendarPage activeTagFilters={activeTagFilters} />} // Pasar filtros
                             />
-                            <Route 
-                                path="/habit-templates" 
+                            <Route
+                                path="/habit-templates"
                                 element={<HabitTemplatesPage activeTagFilters={activeTagFilters} />} // Pasar filtros
                             />
                             <Route path="/quests" element={<QuestPage />} /> {/* Quests y Tags no se filtran por tags */}
                             <Route path="/tags" element={<TagsPage />} />
                             <Route path="/settings" element={<SettingsPage />} />
-                             <Route path="/profile" element={<ProfilePage />} /> 
+                            <Route path="/profile" element={<ProfilePage />} />
                         </Route>
 
                         <Route path="*" element={

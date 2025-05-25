@@ -104,9 +104,10 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) {
         setShowModal(true);
     };
 
-    const navLinks = [
+const navLinks = [
         { to: "/dashboard", label: "Dashboard", icon: "🗺️" },
         { to: "/calendar", label: "Calendar", icon: "📅" },
+        { to: "/pool-missions", label: "Mission Pool", icon: "🧺" }, // New Link
         { to: "/scheduled-missions", label: "Scheduled", icon: "🗓️" },
         { to: "/habit-templates", label: "Habits", icon: "🔄" },
         { to: "/quests", label: "My Quests", icon: "🏆" },

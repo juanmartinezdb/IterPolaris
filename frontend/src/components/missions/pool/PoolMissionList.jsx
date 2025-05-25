@@ -5,20 +5,22 @@ import '../../../styles/poolmissions.css';
 
 function PoolMissionList({ 
     missions, 
-    title, 
+    title = "Missions", // Provide a default title
     onEditMission, 
     onDeleteMission, 
     onToggleFocusStatus, 
     onToggleCompleteStatus,
-    questColors // Objeto { quest_id: color_hex }
+    questColors 
 }) {
     if (!missions || missions.length === 0) {
-        return <p style={{ textAlign: 'center', marginTop: '1rem', fontFamily: 'var(--font-secondary)' }}>No {title.toLowerCase()} missions here. Time to add some!</p>;
+        // Use a generic message if title might be intentionally omitted for a main list
+        const displayTitle = title || "missions"; // Fallback for the message
+        return <p style={{ textAlign: 'center', marginTop: '1rem', fontFamily: 'var(--font-secondary)' }}>No {displayTitle.toLowerCase()} here. Time to add some!</p>;
     }
 
     return (
         <>
-            {title && <h4>{title}</h4>}
+            {title && <h4>{title}</h4>} 
             <ul className="pool-mission-list">
                 {missions.map((mission) => (
                     <PoolMissionItem
