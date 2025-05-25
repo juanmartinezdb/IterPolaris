@@ -11,13 +11,11 @@ import uuid
 auth_bp = Blueprint('auth_bp', __name__, url_prefix='/api/auth')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-
+VALID_PANEL_TYPES = ["UPCOMING_MISSIONS", "PROJECT_TASKS", "TODAY_AGENDA", "MISSION_POOL", "TODAY_HABITS"] # Define valid panel types
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 def is_valid_email(email_string):
     pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
@@ -37,14 +35,9 @@ def register():
     try:
         new_user = User(email=email, name=name.strip())
         new_user.set_password(password)
-        # Asegurar que settings se inicialice como un diccionario vacío si el default no lo hace (aunque debería)
-        if new_user.settings is None:
-            new_user.settings = {"sidebar_pinned_tag_ids": []}
-        elif not isinstance(new_user.settings, dict): # Por si acaso el default no es un dict
-             new_user.settings = {"sidebar_pinned_tag_ids": []}
-        elif 'sidebar_pinned_tag_ids' not in new_user.settings: # Asegurar que la clave exista
-            new_user.settings['sidebar_pinned_tag_ids'] = []
-
+        
+        # Ensure settings is initialized correctly, including dashboard_panels
+        new_user.settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
 
         db.session.add(new_user); db.session.flush()
         default_quest = Quest(user_id=new_user.id, name="General", description="Default quest for unsorted or main tasks.", color="#808080", is_default_quest=True)
@@ -86,7 +79,7 @@ def login():
     if user and user.check_password(password):
         today = date.today()
         if user.last_login_date:
-            if user.last_login_date == today: pass # No change to streak
+            if user.last_login_date == today: pass 
             elif user.last_login_date == (today - timedelta(days=1)): user.current_streak = (user.current_streak or 0) + 1
             else: user.current_streak = 1 
         else: user.current_streak = 1
@@ -100,9 +93,11 @@ def login():
         if token:
             user_settings = user.settings
             if user_settings is None or not isinstance(user_settings, dict):
-                user_settings = {"sidebar_pinned_tag_ids": []}
-            elif 'sidebar_pinned_tag_ids' not in user_settings or not isinstance(user_settings.get('sidebar_pinned_tag_ids'), list):
+                user_settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
+            if 'sidebar_pinned_tag_ids' not in user_settings or not isinstance(user_settings.get('sidebar_pinned_tag_ids'), list):
                  user_settings['sidebar_pinned_tag_ids'] = []
+            if 'dashboard_panels' not in user_settings or not isinstance(user_settings.get('dashboard_panels'), list):
+                 user_settings['dashboard_panels'] = []
 
 
             user_data_response = {
@@ -124,8 +119,8 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 @token_required
 def logout():
-    user_email = "Unknown user" # Default
-    if hasattr(g, 'current_user') and g.current_user: # Check if g.current_user is set
+    user_email = "Unknown user" 
+    if hasattr(g, 'current_user') and g.current_user: 
         user_email = g.current_user.email
     return jsonify({"message": f"User {user_email} logout successful. Please clear your token on the client-side."}), 200
 
@@ -138,9 +133,11 @@ def get_current_user_profile():
     
     user_settings = user.settings
     if user_settings is None or not isinstance(user_settings, dict):
-        user_settings = {"sidebar_pinned_tag_ids": []}
-    elif 'sidebar_pinned_tag_ids' not in user_settings or not isinstance(user_settings.get('sidebar_pinned_tag_ids'), list):
+        user_settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
+    if 'sidebar_pinned_tag_ids' not in user_settings or not isinstance(user_settings.get('sidebar_pinned_tag_ids'), list):
             user_settings['sidebar_pinned_tag_ids'] = []
+    if 'dashboard_panels' not in user_settings or not isinstance(user_settings.get('dashboard_panels'), list):
+            user_settings['dashboard_panels'] = []
 
     return jsonify({
         "id": str(user.id), "email": user.email, "name": user.name,
@@ -179,53 +176,110 @@ def update_user_settings():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    # Inicializar current_user.settings si es None
     if current_user.settings is None:
         current_user.settings = {}
     
-    # Procesar 'settings' si se encuentra en el payload
+    # Ensure base structure for settings if completely missing
+    if not isinstance(current_user.settings, dict):
+        current_user.settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
+    if 'sidebar_pinned_tag_ids' not in current_user.settings:
+        current_user.settings['sidebar_pinned_tag_ids'] = []
+    if 'dashboard_panels' not in current_user.settings:
+        current_user.settings['dashboard_panels'] = []
+
     new_settings_payload = data.get('settings')
+    settings_changed = False
+
     if isinstance(new_settings_payload, dict):
+        # Handle sidebar_pinned_tag_ids
         pinned_tags_ids_str = new_settings_payload.get('sidebar_pinned_tag_ids')
-        if pinned_tags_ids_str is not None: # Solo validar y actualizar si se provee
+        if pinned_tags_ids_str is not None: 
             if not isinstance(pinned_tags_ids_str, list):
                 return jsonify({"error": "sidebar_pinned_tag_ids must be a list of tag UUID strings."}), 400
             
             valid_pinned_tag_uuids = []
             for tag_id_str in pinned_tags_ids_str:
                 try:
-                    tag_uuid = uuid.UUID(str(tag_id_str)) # Convertir a UUID para validar formato
-                    # Verificar que el tag exista y pertenezca al usuario
+                    tag_uuid = uuid.UUID(str(tag_id_str)) 
                     tag_exists = Tag.query.filter_by(id=tag_uuid, user_id=current_user.id).first()
                     if not tag_exists:
-                        return jsonify({"error": f"Invalid or non-existent tag_id provided: {tag_id_str}"}), 400
-                    valid_pinned_tag_uuids.append(str(tag_uuid)) # Guardar como string
+                        return jsonify({"error": f"Invalid or non-existent tag_id for pinned tags: {tag_id_str}"}), 400
+                    valid_pinned_tag_uuids.append(str(tag_uuid)) 
                 except ValueError:
-                    return jsonify({"error": f"Invalid UUID format for tag_id: {tag_id_str}"}), 400
+                    return jsonify({"error": f"Invalid UUID format for pinned tag_id: {tag_id_str}"}), 400
             current_user.settings['sidebar_pinned_tag_ids'] = valid_pinned_tag_uuids
-        # Aquí se podrían procesar otras claves dentro de new_settings_payload si existieran
-        # current_user.settings.update(new_settings_payload) # Opción más genérica pero menos controlada
+            settings_changed = True
 
-    # Procesar 'avatar_url' si se encuentra en el payload (fuera del objeto 'settings')
+        # Handle dashboard_panels
+        dashboard_panels_payload = new_settings_payload.get('dashboard_panels')
+        if dashboard_panels_payload is not None:
+            if not isinstance(dashboard_panels_payload, list):
+                return jsonify({"error": "dashboard_panels must be a list."}), 400
+            
+            validated_panels = []
+            panel_ids_seen = set()
+            for panel_data in dashboard_panels_payload:
+                if not isinstance(panel_data, dict):
+                    return jsonify({"error": "Each item in dashboard_panels must be an object."}), 400
+                
+                panel_id = panel_data.get('id')
+                panel_type = panel_data.get('panel_type')
+                panel_name = panel_data.get('name', '') # Default to empty string
+                panel_order = panel_data.get('order')
+                panel_is_active = panel_data.get('is_active')
+                panel_quest_id_str = panel_data.get('quest_id')
+
+                if not panel_id or not isinstance(panel_id, str): return jsonify({"error": "Panel missing 'id' or id is not a string."}), 400
+                try: uuid.UUID(panel_id) # Validate UUID format for panel id
+                except ValueError: return jsonify({"error": f"Invalid UUID format for panel id: {panel_id}"}), 400
+                if panel_id in panel_ids_seen: return jsonify({"error": f"Duplicate panel id found: {panel_id}"}), 400
+                panel_ids_seen.add(panel_id)
+
+                if not panel_type or panel_type not in VALID_PANEL_TYPES:
+                    return jsonify({"error": f"Panel {panel_id} has invalid or missing 'panel_type'. Valid types are: {', '.join(VALID_PANEL_TYPES)}"}), 400
+                if not isinstance(panel_name, str): return jsonify({"error": f"Panel {panel_id} 'name' must be a string."}), 400
+                if panel_order is None or not isinstance(panel_order, int): return jsonify({"error": f"Panel {panel_id} missing 'order' or order is not an integer."}), 400
+                if panel_is_active is None or not isinstance(panel_is_active, bool): return jsonify({"error": f"Panel {panel_id} missing 'is_active' or is_active is not a boolean."}), 400
+
+                validated_panel = {
+                    "id": panel_id, "panel_type": panel_type, "name": panel_name.strip(),
+                    "order": panel_order, "is_active": panel_is_active
+                }
+
+                if panel_type == "PROJECT_TASKS":
+                    if not panel_quest_id_str: return jsonify({"error": f"Panel {panel_id} of type PROJECT_TASKS requires a 'quest_id'."}), 400
+                    try:
+                        panel_quest_uuid = uuid.UUID(str(panel_quest_id_str))
+                        quest_exists = Quest.query.filter_by(id=panel_quest_uuid, user_id=current_user.id).first()
+                        if not quest_exists: return jsonify({"error": f"Panel {panel_id}: Quest ID '{panel_quest_id_str}' not found or access denied."}), 400
+                        validated_panel["quest_id"] = str(panel_quest_uuid)
+                    except ValueError: return jsonify({"error": f"Panel {panel_id}: Invalid UUID format for quest_id: {panel_quest_id_str}"}), 400
+                elif "quest_id" in panel_data: # quest_id should only be present for PROJECT_TASKS
+                    return jsonify({"error": f"Panel {panel_id}: 'quest_id' should only be provided for PROJECT_TASKS panel type."}), 400
+                
+                validated_panels.append(validated_panel)
+            current_user.settings['dashboard_panels'] = validated_panels
+            settings_changed = True
+            
     new_avatar_url = data.get('avatar_url')
     if new_avatar_url is not None: 
         if not isinstance(new_avatar_url, str):
             return jsonify({"error": "avatar_url must be a string."}), 400
         current_user.avatar_url = new_avatar_url.strip() if new_avatar_url.strip() else None
+        # No need to set settings_changed = True here, avatar is separate
 
     try:
-        from sqlalchemy.orm.attributes import flag_modified
-        if isinstance(new_settings_payload, dict) : # Solo marcar como modificado si se intentó actualizar settings
+        if settings_changed : # Only mark settings as modified if the settings part of payload was processed
+             from sqlalchemy.orm.attributes import flag_modified
              flag_modified(current_user, "settings")
 
         db.session.commit()
         
-        # Asegurar que la respuesta siempre tenga una estructura de settings válida
         final_settings = current_user.settings
         if final_settings is None or not isinstance(final_settings, dict):
-            final_settings = {"sidebar_pinned_tag_ids": []}
-        elif 'sidebar_pinned_tag_ids' not in final_settings or not isinstance(final_settings.get('sidebar_pinned_tag_ids'), list):
-            final_settings['sidebar_pinned_tag_ids'] = []
+            final_settings = {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}
+        if 'sidebar_pinned_tag_ids' not in final_settings: final_settings['sidebar_pinned_tag_ids'] = []
+        if 'dashboard_panels' not in final_settings: final_settings['dashboard_panels'] = []
             
         return jsonify({
             "message": "User data updated successfully.",
@@ -236,70 +290,45 @@ def update_user_settings():
         db.session.rollback()
         current_app.logger.error(f"Error updating settings for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update settings due to an internal error."}), 500
+
 @auth_bp.route('/me/avatar', methods=['POST'])
 @token_required
 def upload_avatar():
-    current_user = g.current_user # type: User
-    
-    # Access UPLOAD_FOLDER from app config
+    current_user = g.current_user 
     upload_folder_path = current_app.config['UPLOAD_FOLDER']
-
-    if 'avatar' not in request.files:
-        return jsonify({"error": "No avatar file part in the request"}), 400
-    
+    if 'avatar' not in request.files: return jsonify({"error": "No avatar file part in the request"}), 400
     file = request.files['avatar']
-    if file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-
+    if file.filename == '': return jsonify({"error": "No selected file"}), 400
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         unique_suffix = uuid.uuid4().hex[:8]
         new_filename = f"user_{current_user.id}_{unique_suffix}_{filename}"
-        
         if not os.path.exists(upload_folder_path):
-            try:
-                os.makedirs(upload_folder_path)
-                current_app.logger.info(f"Created avatar upload folder: {upload_folder_path}")
+            try: os.makedirs(upload_folder_path)
             except OSError as e:
-                current_app.logger.error(f"Failed to create avatar upload folder {upload_folder_path}: {e}")
+                current_app.logger.error(f"Failed to create avatar folder {upload_folder_path}: {e}")
                 return jsonify({"error": "Failed to create avatar storage location."}), 500
-
         file_path = os.path.join(upload_folder_path, new_filename)
-        
         try:
             if current_user.avatar_url and current_user.avatar_url.startswith('/static/avatars/'):
                 old_avatar_filename = current_user.avatar_url.split('/')[-1]
                 old_avatar_path = os.path.join(upload_folder_path, old_avatar_filename)
                 if os.path.exists(old_avatar_path):
-                    try:
-                        os.remove(old_avatar_path)
-                        current_app.logger.info(f"Deleted old avatar: {old_avatar_path}")
-                    except OSError as e_remove_old:
-                        current_app.logger.warning(f"Could not delete old avatar {old_avatar_path}: {e_remove_old}")
-            
+                    try: os.remove(old_avatar_path)
+                    except OSError as e_ro: current_app.logger.warning(f"Could not delete old avatar {old_avatar_path}: {e_ro}")
             file.save(file_path)
             current_user.avatar_url = f'/static/avatars/{new_filename}'
             db.session.commit()
-            
-            user_data_response = {
-                "id": str(current_user.id), "email": current_user.email, "name": current_user.name,
-                "avatar_url": current_user.avatar_url,
-                "level": current_user.level, "total_points": current_user.total_points,
-                "current_streak": current_user.current_streak,
-                "last_login_date": current_user.last_login_date.isoformat() if current_user.last_login_date else None,
-                "settings": current_user.settings if isinstance(current_user.settings, dict) else {"sidebar_pinned_tag_ids": []}
+            user_data_resp = {
+                "id": str(current_user.id), "avatar_url": current_user.avatar_url,
+                # Incluir otros campos necesarios para actualizar UserContext en frontend si se desea
             }
-            return jsonify({
-                "message": "Avatar uploaded successfully.",
-                "user": user_data_response
-            }), 200
-            
+            return jsonify({"message": "Avatar uploaded successfully.", "user": user_data_resp }), 200
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error saving avatar for user {current_user.id}: {e}", exc_info=True)
             if os.path.exists(file_path):
                 try: os.remove(file_path)
-                except OSError as e_remove: current_app.logger.error(f"Failed to remove partially saved avatar {new_filename}: {e_remove}")
+                except OSError as e_rf: current_app.logger.error(f"Failed to remove partially saved avatar {new_filename}: {e_rf}")
             return jsonify({"error": "Failed to upload avatar due to an internal server error."}), 500
-    else:
-        return jsonify({"error": "File type not allowed. Allowed types: png, jpg, jpeg, gif"}), 400
+    else: return jsonify({"error": "File type not allowed. Allowed: png, jpg, jpeg, gif"}), 400

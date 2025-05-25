@@ -1,3 +1,4 @@
+# backend/app/models.py
 from . import db # Importa la instancia db de __init__.py
 from sqlalchemy.dialects.postgresql import UUID, TEXT, BOOLEAN, INTEGER, TIMESTAMP, DATE, TIME, ARRAY, JSONB
 from sqlalchemy import UniqueConstraint, CheckConstraint
@@ -21,7 +22,8 @@ class User(db.Model):
     level = db.Column(INTEGER, default=1, nullable=False)
     current_streak = db.Column(INTEGER, default=0, nullable=False)
     last_login_date = db.Column(DATE, nullable=True)
-    settings = db.Column(JSONB, nullable=True, default=lambda: {"sidebar_pinned_tag_ids": []}) 
+    # Updated default for settings to include dashboard_panels
+    settings = db.Column(JSONB, nullable=True, default=lambda: {"sidebar_pinned_tag_ids": [], "dashboard_panels": []}) 
     created_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -42,14 +44,6 @@ class User(db.Model):
     def check_password(self, password):
         """Verifica la contraseña proporcionada contra el hash almacenado."""
         return check_password_hash(self.password_hash, password)
-
-    # Placeholder para métodos de token de reseteo de contraseña (se implementarán más tarde)
-    # def get_reset_password_token(self, expires_in=600):
-    #     pass # Lógica para generar un token JWT específico para reseteo
-
-    # @staticmethod
-    # def verify_reset_password_token(token):
-    #     pass # Lógica para verificar el token y devolver el ID de usuario
     
     def __repr__(self):
         return f'<User {self.email}>'
@@ -74,12 +68,6 @@ class Quest(db.Model):
 
     __table_args__ = (
         UniqueConstraint('user_id', 'name', name='uq_user_quest_name'),
-        # La constraint UNIQUE(user_id) WHERE is_default_quest IS TRUE es más compleja
-        # y se maneja mejor con un índice parcial o un trigger en la BD directamente.
-        # SQLAlchemy no tiene un decorador simple para esto.
-        # Por ahora, la lógica de negocio deberá asegurar esto.
-        # Se podría usar un índice parcial así en Alembic:
-        # op.create_index('idx_user_default_quest_unique', 'quests', ['user_id'], unique=True, postgresql_where=sa.text('is_default_quest IS TRUE'))
     )
 
     def __repr__(self):
@@ -150,6 +138,7 @@ class ScheduledMission(db.Model):
     points_value = db.Column(INTEGER, nullable=False)
     start_datetime = db.Column(TIMESTAMP(timezone=True), nullable=False)
     end_datetime = db.Column(TIMESTAMP(timezone=True), nullable=False)
+    is_all_day = db.Column(BOOLEAN, default=False, nullable=False) # New field
     status = db.Column(TEXT, nullable=False, default='PENDING') # PENDING, COMPLETED, SKIPPED
     created_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -221,7 +210,7 @@ class EnergyLog(db.Model):
     energy_value = db.Column(INTEGER, nullable=False)
     reason_text = db.Column(TEXT, nullable=True)
     is_active = db.Column(BOOLEAN, default=True, nullable=False) # NUEVO CAMPO
-    created_at = db.Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False) # Usar lambda para asegurar nueva fecha en cada inserción
+    created_at = db.Column(TIMESTAMP(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False) 
 
     __table_args__ = (
         CheckConstraint(source_entity_type.in_(['POOL_MISSION', 'SCHEDULED_MISSION', 'HABIT_OCCURRENCE', None]), name='ck_energy_log_source_type'),
