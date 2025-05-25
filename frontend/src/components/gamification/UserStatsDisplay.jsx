@@ -3,6 +3,8 @@ import React, { useContext } from 'react'; // No más useState, useEffect, useCa
 import { UserContext } from '../../contexts/UserContext'; // Importar contexto
 import '../../styles/gamification.css'; 
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; 
+
 // Funciones de cálculo de XP (se mantienen o se obtienen del backend)
 const getXpForLevel = (level) => {
     if (level <= 1) return 0;
@@ -22,7 +24,7 @@ function UserStatsDisplay() {
         return <div className="user-stats-container"></div>;
     }
 
-    const { name, level, total_points, current_streak, avatar_url } = currentUser;
+    const { name, level, total_points, current_streak, fullAvatarUrl } = currentUser;
 
     const xpForCurrentLevel = getXpForLevel(level);
     const xpForNextLevel = getXpForLevel(level + 1);
@@ -54,9 +56,9 @@ function UserStatsDisplay() {
     return (
         <div className="user-stats-container">
             <div className="user-avatar-name">
-                {avatar_url ? (
-                    <img src={avatar_url} alt={name} className="user-avatar-stats" />
-                ) : (
+                    {fullAvatarUrl ? (
+                        <img src={fullAvatarUrl} alt={name} className="user-avatar-stats" />
+                    ) : (
                     <div className="user-avatar-placeholder-stats">
                         {name ? name.charAt(0).toUpperCase() : '?'}
                     </div>

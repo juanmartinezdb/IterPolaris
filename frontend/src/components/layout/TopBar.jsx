@@ -54,9 +54,9 @@ function TopBar({ isAuthenticated, handleLogout }) {
                     ) : (
                         <div className="user-avatar-dropdown-container" ref={dropdownRef}>
                             <button onClick={toggleDropdown} className="avatar-button" aria-label="User menu">
-                                {currentUser?.avatar_url ? (
-                                    <img src={currentUser.avatar_url} alt={currentUser.name} className="user-avatar-topbar" />
-                                ) : (
+                                    {currentUser?.fullAvatarUrl ? (
+                                        <img src={currentUser.fullAvatarUrl} alt={currentUser.name} className="user-avatar-topbar" />
+                                    ) : (
                                     <div className="user-avatar-placeholder-topbar">
                                         {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : '?'}
                                     </div>

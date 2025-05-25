@@ -31,6 +31,8 @@ def create_app(config_class=None):
     app.config['JWT_ALGORITHM'] = os.environ.get('JWT_ALGORITHM', 'HS256')
     app.config['JWT_ACCESS_TOKEN_EXPIRES_MINUTES'] = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES_MINUTES', 30))
 
+    app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'avatars')
+
     # Inicializar extensiones con la aplicación
     db.init_app(app)
     migrate.init_app(app, db) # Flask-Migrate necesita la app y la instancia de db

@@ -1,12 +1,23 @@
 # backend/app/api/auth_routes.py
+import os
+from werkzeug.utils import secure_filename
 from flask import Blueprint, request, jsonify, current_app, g
 from app.models import User, db, Quest, Tag 
 from app.auth_utils import generate_jwt, token_required 
 import re
 from datetime import date, timedelta
-import uuid # <--- IMPORTACIÓN AÑADIDA
+import uuid
 
 auth_bp = Blueprint('auth_bp', __name__, url_prefix='/api/auth')
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def is_valid_email(email_string):
     pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
@@ -225,3 +236,70 @@ def update_user_settings():
         db.session.rollback()
         current_app.logger.error(f"Error updating settings for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update settings due to an internal error."}), 500
+@auth_bp.route('/me/avatar', methods=['POST'])
+@token_required
+def upload_avatar():
+    current_user = g.current_user # type: User
+    
+    # Access UPLOAD_FOLDER from app config
+    upload_folder_path = current_app.config['UPLOAD_FOLDER']
+
+    if 'avatar' not in request.files:
+        return jsonify({"error": "No avatar file part in the request"}), 400
+    
+    file = request.files['avatar']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        unique_suffix = uuid.uuid4().hex[:8]
+        new_filename = f"user_{current_user.id}_{unique_suffix}_{filename}"
+        
+        if not os.path.exists(upload_folder_path):
+            try:
+                os.makedirs(upload_folder_path)
+                current_app.logger.info(f"Created avatar upload folder: {upload_folder_path}")
+            except OSError as e:
+                current_app.logger.error(f"Failed to create avatar upload folder {upload_folder_path}: {e}")
+                return jsonify({"error": "Failed to create avatar storage location."}), 500
+
+        file_path = os.path.join(upload_folder_path, new_filename)
+        
+        try:
+            if current_user.avatar_url and current_user.avatar_url.startswith('/static/avatars/'):
+                old_avatar_filename = current_user.avatar_url.split('/')[-1]
+                old_avatar_path = os.path.join(upload_folder_path, old_avatar_filename)
+                if os.path.exists(old_avatar_path):
+                    try:
+                        os.remove(old_avatar_path)
+                        current_app.logger.info(f"Deleted old avatar: {old_avatar_path}")
+                    except OSError as e_remove_old:
+                        current_app.logger.warning(f"Could not delete old avatar {old_avatar_path}: {e_remove_old}")
+            
+            file.save(file_path)
+            current_user.avatar_url = f'/static/avatars/{new_filename}'
+            db.session.commit()
+            
+            user_data_response = {
+                "id": str(current_user.id), "email": current_user.email, "name": current_user.name,
+                "avatar_url": current_user.avatar_url,
+                "level": current_user.level, "total_points": current_user.total_points,
+                "current_streak": current_user.current_streak,
+                "last_login_date": current_user.last_login_date.isoformat() if current_user.last_login_date else None,
+                "settings": current_user.settings if isinstance(current_user.settings, dict) else {"sidebar_pinned_tag_ids": []}
+            }
+            return jsonify({
+                "message": "Avatar uploaded successfully.",
+                "user": user_data_response
+            }), 200
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error saving avatar for user {current_user.id}: {e}", exc_info=True)
+            if os.path.exists(file_path):
+                try: os.remove(file_path)
+                except OSError as e_remove: current_app.logger.error(f"Failed to remove partially saved avatar {new_filename}: {e_remove}")
+            return jsonify({"error": "Failed to upload avatar due to an internal server error."}), 500
+    else:
+        return jsonify({"error": "File type not allowed. Allowed types: png, jpg, jpeg, gif"}), 400

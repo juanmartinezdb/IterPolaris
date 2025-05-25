@@ -109,3 +109,135 @@
 .profile-page.error p {
     color: var(--color-error);
 }
+
+
+.avatar-file-input { /* Can be hidden if using a styled label */
+    /* display: none; */ /* If using a label to trigger it */
+    margin-top: 0.5rem;
+    display: block; /* Or inline-block */
+    max-width: 200px; /* Prevent it from being too wide */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.avatar-upload-button {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-secondary);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-accent-gold);
+    border: 1px solid var(--color-accent-gold);
+    border-radius: var(--border-radius-button);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-size: 0.9em;
+}
+.avatar-upload-button:hover {
+    background-color: var(--color-accent-gold);
+    color: var(--color-text-on-accent);
+}
+
+.avatar-submit-button {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-primary);
+    background-color: var(--color-accent-secondary);
+    color: var(--color-text-on-accent);
+    border: none;
+    border-radius: var(--border-radius-button);
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+    font-size: 0.9em;
+}
+.avatar-submit-button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+.avatar-submit-button:disabled {
+    background-color: var(--color-text-on-dark-muted);
+    cursor: not-allowed;
+}
+.avatar-upload-hint {
+    font-size: 0.75em;
+    color: var(--color-text-on-dark-muted);
+    text-align: center;
+    margin-top: 0.3rem;
+}
+
+.avatar-file-input {
+    /* Can be hidden if a styled label is preferred for triggering file selection */
+    /* For example: style={{display: 'none'}} on the input, and use <label htmlFor="avatarUpload"> */
+    margin-top: 0.5rem;
+    display: block; 
+    max-width: 200px; 
+    margin-left: auto;
+    margin-right: auto;
+    font-family: var(--font-secondary);
+    color: var(--color-text-on-dark-muted);
+}
+/* If input is directly visible and needs styling: */
+.avatar-file-input::file-selector-button {
+    padding: 0.4rem 0.8rem;
+    margin-right: 0.5rem;
+    background-color: var(--color-bg-elevated);
+    color: var(--color-accent-gold);
+    border: 1px solid var(--color-accent-gold);
+    border-radius: var(--border-radius-button);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.avatar-file-input::file-selector-button:hover {
+    background-color: var(--color-accent-gold);
+    color: var(--color-text-on-accent);
+}
+
+
+.avatar-upload-button { /* This styles the <label> acting as a button */
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-secondary);
+    background-color: var(--color-bg-elevated);
+    color: var(--color-accent-gold);
+    border: 1px solid var(--color-accent-gold);
+    border-radius: var(--border-radius-button);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    font-size: 0.9em;
+    text-align: center;
+}
+.avatar-upload-button:hover {
+    background-color: var(--color-accent-gold);
+    color: var(--color-text-on-accent);
+}
+
+.avatar-submit-button {
+    display: inline-block;
+    padding: 0.6rem 1.2rem;
+    margin-top: 0.75rem;
+    font-family: var(--font-primary);
+    background-color: var(--color-accent-secondary);
+    color: var(--color-text-on-accent);
+    border: none;
+    border-radius: var(--border-radius-button);
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+    font-size: 0.9em;
+}
+.avatar-submit-button:hover:not(:disabled) {
+    opacity: 0.9;
+}
+.avatar-submit-button:disabled {
+    background-color: var(--color-text-on-dark-muted);
+    cursor: not-allowed;
+}
+.avatar-upload-hint {
+    font-size: 0.75em;
+    color: var(--color-text-on-dark-muted);
+    text-align: center;
+    margin-top: 0.3rem;
+}
+
