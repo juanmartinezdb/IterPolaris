@@ -1,0 +1,98 @@
+/* frontend/src/styles/TimeOfDaySlider.css */
+.time-of-day-slider-container {
+    margin-bottom: var(--spacing-md, 16px);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+.time-of-day-slider-container label {
+    display: flex; /* Align label and value display */
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm, 8px);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.time-value-display {
+    font-weight: bold;
+    color: var(--color-accent-gold);
+    font-size: 1.1em;
+    padding: 0.2em 0.5em;
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--border-radius-button);
+    border: 1px solid var(--color-accent-gold-hover);
+}
+.time-section-indicator {
+    margin-left: 0.5em;
+    font-size: 0.8em;
+    font-style: italic;
+}
+
+.time-of-day-slider-input {
+    width: 100%;
+    height: 10px; /* Thinner track */
+    -webkit-appearance: none;
+    appearance: none;
+    /* background: var(--color-bg-deep-blue, #0A192F); */
+    background: var(--slider-track-background, var(--color-bg-deep-blue, #0A192F));
+    border-radius: 5px;
+    border: 1px solid var(--color-border-muted, #304057);
+    outline: none;
+    cursor: pointer;
+    margin-top: 0.25rem;
+}
+
+/* Thumb styling */
+.time-of-day-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px; /* Gem-like or thematic icon size */
+    height: 18px;
+    background: var(--color-accent-gold, #B08D57); /* Gold thumb */
+    border-radius: 50%;
+    border: 2px solid var(--color-bg-deep-blue, #0A192F); /* Contrast border */
+    cursor: grab;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 0 5px rgba(176, 141, 87, 0.5);
+}
+.time-of-day-slider-input::-moz-range-thumb { /* Firefox */
+    width: 18px;
+    height: 18px;
+    background: var(--color-accent-gold, #B08D57);
+    border-radius: 50%;
+    border: 2px solid var(--color-bg-deep-blue, #0A192F);
+    cursor: grab;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 0 5px rgba(176, 141, 87, 0.5);
+}
+.time-of-day-slider-input:hover::-webkit-slider-thumb {
+    background: var(--color-accent-gold-hover, #c9a36a);
+}
+.time-of-day-slider-input:hover::-moz-range-thumb {
+    background: var(--color-accent-gold-hover, #c9a36a);
+}
+.time-of-day-slider-input:active::-webkit-slider-thumb {
+    transform: scale(1.1);
+    cursor: grabbing;
+}
+.time-of-day-slider-input:active::-moz-range-thumb {
+    transform: scale(1.1);
+    cursor: grabbing;
+}
+
+
+.time-of-day-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    padding: 0 2px; /* Align with slider padding */
+    margin-top: var(--spacing-xs, 4px);
+}
+
+/* Define the time section colors in your main CSS (e.g., index.css) */
+/* :root {
+  --color-time-madrugada: #1C2A4F;
+  --color-time-manana: #529BFF;
+  --color-time-tarde: #B08D57;
+  --color-time-noche: #304057;
+} */

@@ -1,0 +1,83 @@
+/* frontend/src/styles/DurationSelector.css */
+.duration-selector-container {
+    margin-bottom: var(--spacing-md, 16px);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+.duration-selector-container label {
+    display: block;
+    margin-bottom: var(--spacing-sm, 8px);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+.duration-options-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm, 8px);
+}
+.duration-option-button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    background-color: var(--color-bg-elevated, #21395A);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border: 1px solid var(--color-border-muted, #304057);
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+    border-radius: var(--border-radius-button, 20px); /* More rounded for token/rune feel */
+    cursor: pointer;
+    transition: all 0.2s ease-out;
+    font-size: 0.85em;
+    min-width: 50px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.duration-option-button:hover:not(:disabled) {
+    border-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-accent-gold, #B08D57);
+    transform: translateY(-1px);
+}
+.duration-option-button.active {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    font-weight: bold;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+}
+.duration-option-button.custom-toggle.active {
+    background-color: var(--color-accent-secondary, #50C878); /* Different color for active custom */
+    color: var(--color-text-on-accent);
+    border-color: var(--color-success-dark);
+}
+
+.custom-duration-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: var(--spacing-sm, 8px);
+    padding: 0.5rem;
+    background-color: var(--color-bg-elevated);
+    border-radius: var(--border-radius-input);
+    border: 1px dashed var(--color-text-on-dark-muted);
+}
+.custom-duration-inputs input[type="number"] {
+    width: 60px;
+    padding: 0.4rem;
+    text-align: center;
+    font-family: var(--font-secondary);
+    background-color: var(--color-bg-deep-blue);
+    color: var(--color-text-on-dark);
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--border-radius-input);
+    font-size: 0.9em;
+}
+.custom-duration-inputs input[type="number"]:focus {
+    border-color: var(--color-accent-gold);
+    outline: none;
+}
+.custom-duration-inputs span {
+    color: var(--color-text-on-dark-muted);
+    font-size: 0.9em;
+}
+.duration-selector-container.disabled .duration-option-button,
+.duration-selector-container.disabled .custom-duration-inputs input {
+    cursor: not-allowed;
+    opacity: 0.6;
+}

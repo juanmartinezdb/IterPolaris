@@ -3,35 +3,30 @@ from flask import Blueprint, request, jsonify, g, current_app
 from app.models import db, User, Quest, Tag, ScheduledMission, EnergyLog 
 from app.auth_utils import token_required
 import uuid
-from datetime import datetime, timezone, date, time # time importado
+from datetime import datetime, timezone, date, time, timedelta # timedelta imported
 from app.services.gamification_services import update_user_stats_after_mission
 
 scheduled_mission_bp = Blueprint('scheduled_mission_bp', __name__, url_prefix='/api/scheduled-missions')
 
-def parse_datetime_from_iso_or_date_str(dt_str, is_end_of_day=False):
-    """
-    Parses a datetime string. If only date is provided, sets time component.
-    Returns a timezone-aware UTC datetime object or (None, error_message).
-    """
+# ... (parse_datetime_from_iso_or_date_str and validate_scheduled_mission_data remain the same) ...
+def parse_datetime_from_iso_or_date_str(dt_str, is_end_of_day=False): # No changes needed here
     if not dt_str:
         return None, "Datetime string cannot be empty."
     try:
-        if 'T' in dt_str: # Full datetime string
+        if 'T' in dt_str: 
             if dt_str.endswith('Z'):
                 dt_obj = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
             elif '+' in dt_str[10:] or '-' in dt_str[10:]:
                 dt_obj = datetime.fromisoformat(dt_str)
-            else: # Naive datetime string
+            else: 
                 dt_obj = datetime.fromisoformat(dt_str)
                 if dt_obj.tzinfo is None:
                     dt_obj = dt_obj.replace(tzinfo=timezone.utc)
-        else: # Only date string (YYYY-MM-DD)
+        else: 
             date_obj = date.fromisoformat(dt_str)
             if is_end_of_day:
-                # For end_datetime of an all-day event, set to very end of the day
                 dt_obj = datetime.combine(date_obj, time.max, tzinfo=timezone.utc)
             else:
-                # For start_datetime of an all-day event, set to beginning of the day
                 dt_obj = datetime.combine(date_obj, time.min, tzinfo=timezone.utc)
         
         return dt_obj.astimezone(timezone.utc), None
@@ -40,12 +35,10 @@ def parse_datetime_from_iso_or_date_str(dt_str, is_end_of_day=False):
     except Exception as e:
         return None, f"Error parsing datetime/date: {e}"
 
-
-def validate_scheduled_mission_data(data, is_update=False):
+def validate_scheduled_mission_data(data, is_update=False): # No changes needed here for all-day fix
     errors = {}
     required_fields_on_create = ['title', 'energy_value', 'points_value', 'start_datetime']
-    # end_datetime is only required if not is_all_day or if start_datetime is present
-
+    
     if not is_update:
         for field in required_fields_on_create:
             if data.get(field) is None: 
@@ -76,27 +69,23 @@ def validate_scheduled_mission_data(data, is_update=False):
         start_dt_obj, start_dt_err = parse_datetime_from_iso_or_date_str(data.get('start_datetime'))
         if start_dt_err:
             errors['start_datetime'] = start_dt_err
-    elif not is_update: # Required on create
+    elif not is_update: 
          errors['start_datetime'] = "start_datetime is required."
 
-
     end_dt_obj, end_dt_err = None, None
-    if not is_all_day_event : # end_datetime is required if not an all-day event
+    if not is_all_day_event : 
         if 'end_datetime' in data and data.get('end_datetime') is not None:
             end_dt_obj, end_dt_err = parse_datetime_from_iso_or_date_str(data.get('end_datetime'))
             if end_dt_err:
                 errors['end_datetime'] = end_dt_err
-        elif not is_update: # Required on create if not all_day
+        elif not is_update:
              errors['end_datetime'] = "end_datetime is required for non-all-day events."
     
     if start_dt_obj and not is_all_day_event and end_dt_obj and end_dt_obj <= start_dt_obj:
         errors['end_datetime'] = "End datetime must be after start datetime for timed events."
     
-    # If it's an all-day event, and start_dt_obj is valid, end_dt_obj will be derived
-    if is_all_day_event and start_dt_obj:
-        end_dt_obj = datetime.combine(start_dt_obj.date(), time.max, tzinfo=timezone.utc)
-
-
+    # No change to end_dt_obj derivation here for all-day, it's handled in the route
+    
     if 'quest_id' in data and data.get('quest_id') is not None:
         try:
             if data['quest_id']: 
@@ -116,40 +105,36 @@ def validate_scheduled_mission_data(data, is_update=False):
     return errors, start_dt_obj, end_dt_obj
 
 
-def parse_date_query_param(date_str):
-    if not date_str: return None
-    try: return date.fromisoformat(date_str.split('T')[0]) 
-    except ValueError: return None
-
-
 @scheduled_mission_bp.route('', methods=['POST'])
 @token_required
 def create_scheduled_mission():
     data = request.get_json()
     current_user = g.current_user
 
-    errors, start_datetime_obj, end_datetime_obj_from_validation = validate_scheduled_mission_data(data)
+    errors, start_datetime_obj_validated, end_datetime_obj_validated = validate_scheduled_mission_data(data)
     if errors:
         return jsonify({"errors": errors}), 400
 
     is_all_day_event = data.get('is_all_day', False)
     
-    # Final datetime objects determination
-    final_start_datetime = start_datetime_obj
+    final_start_datetime = start_datetime_obj_validated
     final_end_datetime = None
 
     if is_all_day_event:
-        if final_start_datetime: # start_datetime is the reference date
-            # For all-day, set start to beginning of day, end to end of day
+        if final_start_datetime:
             date_part = final_start_datetime.date()
             final_start_datetime = datetime.combine(date_part, time.min, tzinfo=timezone.utc)
-            final_end_datetime = datetime.combine(date_part, time.max, tzinfo=timezone.utc)
-        else: # Should not happen if validation passes
+            # Corrected end_datetime for all-day events
+            final_end_datetime = datetime.combine(date_part + timedelta(days=1), time.min, tzinfo=timezone.utc)
+        else:
             return jsonify({"errors": {"start_datetime": "Start date is required for all-day events."}}), 400
-    else: # Not an all-day event
-        final_end_datetime = end_datetime_obj_from_validation # Use validated end_datetime
-        if not final_end_datetime: # Ensure end_datetime is present if not all-day
+    else:
+        final_end_datetime = end_datetime_obj_validated
+        if not final_end_datetime:
              return jsonify({"errors": {"end_datetime": "End datetime is required for non-all-day events."}}), 400
+        if final_start_datetime and final_end_datetime <= final_start_datetime: # Re-check after potential modifications
+            return jsonify({"errors": {"end_datetime": "End datetime must be after start datetime for timed events."}}),400
+
 
     title = data['title'].strip()
     description = data.get('description', '').strip() if data.get('description') else None
@@ -180,7 +165,7 @@ def create_scheduled_mission():
             user_id=current_user.id, title=title, description=description,
             energy_value=energy_value, points_value=points_value,
             start_datetime=final_start_datetime, end_datetime=final_end_datetime,
-            is_all_day=is_all_day_event, # Set the new field
+            is_all_day=is_all_day_event,
             quest_id=final_quest_id_for_db, status=status
         )
         db.session.add(new_mission); db.session.flush() 
@@ -198,7 +183,7 @@ def create_scheduled_mission():
             "energy_value": new_mission.energy_value, "points_value": new_mission.points_value,
             "start_datetime": new_mission.start_datetime.isoformat(),
             "end_datetime": new_mission.end_datetime.isoformat(),
-            "is_all_day": new_mission.is_all_day, # Return new field
+            "is_all_day": new_mission.is_all_day,
             "status": new_mission.status,
             "quest_id": str(new_mission.quest_id) if new_mission.quest_id else None,
             "quest_name": assigned_quest_object.name if assigned_quest_object else None,
@@ -211,6 +196,7 @@ def create_scheduled_mission():
         current_app.logger.error(f"Error creating scheduled mission for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to create scheduled mission due to an internal error"}), 500
 
+# ... (GET all scheduled_missions - no changes needed from previous version for this issue) ...
 @scheduled_mission_bp.route('', methods=['GET'])
 @token_required
 def get_scheduled_missions():
@@ -220,9 +206,7 @@ def get_scheduled_missions():
     status_filter = request.args.get('status')
     filter_start_date_str = request.args.get('filter_start_date')
     filter_end_date_str = request.args.get('filter_end_date')
-    # New filter for all_day
     all_day_filter_str = request.args.get('all_day')
-
 
     try:
         query = ScheduledMission.query.options(db.joinedload(ScheduledMission.quest), db.selectinload(ScheduledMission.tags))\
@@ -233,7 +217,7 @@ def get_scheduled_missions():
             except ValueError: current_app.logger.warning(f"Invalid quest_id format: {quest_id_filter_str}")
         
         if tag_ids_param:
-            valid_tag_uuids = [uuid.UUID(tid) for tid_str in tag_ids_param for tid in tid_str.split(',') if tid] # Handles CSV and multiple params
+            valid_tag_uuids = [uuid.UUID(tid) for tid_str in tag_ids_param for tid in tid_str.split(',') if tid] 
             if valid_tag_uuids:
                 for tag_uuid_item in valid_tag_uuids: query = query.filter(ScheduledMission.tags.any(Tag.id == tag_uuid_item))
 
@@ -244,13 +228,14 @@ def get_scheduled_missions():
             is_all_day_query = all_day_filter_str.lower() == 'true'
             query = query.filter(ScheduledMission.is_all_day == is_all_day_query)
             
-        filter_start_date_obj = parse_date_query_param(filter_start_date_str)
-        filter_end_date_obj = parse_date_query_param(filter_end_date_str)
+        filter_start_date_obj = parse_date_query_param(filter_start_date_str) # Ensure this helper handles date-only
+        filter_end_date_obj = parse_date_query_param(filter_end_date_str)   # Ensure this helper handles date-only
 
         if filter_start_date_obj:
+            # For filtering, we consider events whose period overlaps with the filter range.
+            # An event starts before/on filter_end_date AND ends after/on filter_start_date.
+            query = query.filter(ScheduledMission.start_datetime <= datetime.combine(filter_end_date_obj if filter_end_date_obj else date.max, time.max, tzinfo=timezone.utc) if filter_end_date_obj else True)
             query = query.filter(ScheduledMission.end_datetime >= datetime.combine(filter_start_date_obj, time.min, tzinfo=timezone.utc))
-        if filter_end_date_obj:
-            query = query.filter(ScheduledMission.start_datetime <= datetime.combine(filter_end_date_obj, time.max, tzinfo=timezone.utc))
 
         missions = query.order_by(ScheduledMission.start_datetime.asc()).all()
         
@@ -258,7 +243,7 @@ def get_scheduled_missions():
             "id": str(m.id), "title": m.title, "description": m.description,
             "energy_value": m.energy_value, "points_value": m.points_value,
             "start_datetime": m.start_datetime.isoformat(), "end_datetime": m.end_datetime.isoformat(),
-            "is_all_day": m.is_all_day, # Include new field
+            "is_all_day": m.is_all_day, 
             "status": m.status, "quest_id": str(m.quest_id) if m.quest_id else None,
             "quest_name": m.quest.name if m.quest else None,
             "tags": [{"id": str(t.id), "name": t.name} for t in m.tags],
@@ -269,6 +254,7 @@ def get_scheduled_missions():
         current_app.logger.error(f"Error fetching scheduled missions for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch scheduled missions"}), 500
 
+# ... (GET single scheduled_mission - no changes needed from previous version for this issue) ...
 @scheduled_mission_bp.route('/<uuid:mission_id>', methods=['GET'])
 @token_required
 def get_scheduled_mission(mission_id):
@@ -282,7 +268,7 @@ def get_scheduled_mission(mission_id):
             "id": str(mission.id), "title": mission.title, "description": mission.description,
             "energy_value": mission.energy_value, "points_value": mission.points_value,
             "start_datetime": mission.start_datetime.isoformat(), "end_datetime": mission.end_datetime.isoformat(),
-            "is_all_day": mission.is_all_day, # Include new field
+            "is_all_day": mission.is_all_day, 
             "status": mission.status, "quest_id": str(mission.quest_id) if mission.quest_id else None,
             "quest_name": mission.quest.name if mission.quest else None,
             "tags": [{"id": str(t.id), "name": t.name} for t in mission.tags],
@@ -301,7 +287,7 @@ def update_scheduled_mission(mission_id):
     mission_to_update = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
     if not mission_to_update: return jsonify({"error": "Scheduled Mission not found or access denied"}), 404
 
-    errors, start_datetime_obj, end_datetime_obj_from_validation = validate_scheduled_mission_data(data, is_update=True)
+    errors, start_datetime_obj_validated, end_datetime_obj_validated = validate_scheduled_mission_data(data, is_update=True)
     if errors: return jsonify({"errors": errors}), 400
 
     try:
@@ -309,20 +295,27 @@ def update_scheduled_mission(mission_id):
         original_mission_energy = mission_to_update.energy_value
         original_mission_points = mission_to_update.points_value
         
-        is_all_day_event = data.get('is_all_day', mission_to_update.is_all_day) # Default to current if not provided
+        is_all_day_event = data.get('is_all_day', mission_to_update.is_all_day)
         mission_to_update.is_all_day = is_all_day_event
 
-        if start_datetime_obj:
-            mission_to_update.start_datetime = start_datetime_obj
-        if is_all_day_event and mission_to_update.start_datetime:
-            # For all-day, set start to BoD, end to EoD
-            date_part = mission_to_update.start_datetime.date()
-            mission_to_update.start_datetime = datetime.combine(date_part, time.min, tzinfo=timezone.utc)
-            mission_to_update.end_datetime = datetime.combine(date_part, time.max, tzinfo=timezone.utc)
-        elif end_datetime_obj_from_validation: # Only use if not all-day
-            mission_to_update.end_datetime = end_datetime_obj_from_validation
+        if start_datetime_obj_validated:
+            mission_to_update.start_datetime = start_datetime_obj_validated
         
-        if not is_all_day_event and mission_to_update.end_datetime <= mission_to_update.start_datetime:
+        if is_all_day_event: # If is_all_day is being set or remains true
+            if mission_to_update.start_datetime:
+                date_part = mission_to_update.start_datetime.date()
+                mission_to_update.start_datetime = datetime.combine(date_part, time.min, tzinfo=timezone.utc)
+                # Corrected end_datetime for all-day events
+                mission_to_update.end_datetime = datetime.combine(date_part + timedelta(days=1), time.min, tzinfo=timezone.utc)
+            # No else needed here, as start_datetime would be validated if it was key for all_day
+        elif 'end_datetime' in data : # Only update end_datetime if provided and not all-day
+            if end_datetime_obj_validated:
+                mission_to_update.end_datetime = end_datetime_obj_validated
+            elif data.get('end_datetime') is None and not is_all_day_event: # Explicitly clearing end_datetime for a timed event
+                 return jsonify({"errors": {"end_datetime": "End datetime cannot be null for non-all-day events during update."}}), 400
+        
+        # Final check for timed events
+        if not mission_to_update.is_all_day and mission_to_update.end_datetime <= mission_to_update.start_datetime:
             return jsonify({"errors": {"end_datetime": "End datetime must be after start datetime."}}), 400
         
         if 'title' in data: mission_to_update.title = data['title'].strip()
@@ -363,7 +356,7 @@ def update_scheduled_mission(mission_id):
             "id": str(mission_to_update.id), "title": mission_to_update.title, "description": mission_to_update.description,
             "energy_value": mission_to_update.energy_value, "points_value": mission_to_update.points_value,
             "start_datetime": mission_to_update.start_datetime.isoformat(), "end_datetime": mission_to_update.end_datetime.isoformat(),
-            "is_all_day": mission_to_update.is_all_day, # Return new field
+            "is_all_day": mission_to_update.is_all_day,
             "status": mission_to_update.status,
             "quest_id": str(mission_to_update.quest_id) if mission_to_update.quest_id else None,
             "quest_name": final_assigned_quest_object.name if final_assigned_quest_object else None,
@@ -376,7 +369,7 @@ def update_scheduled_mission(mission_id):
         current_app.logger.error(f"Error updating SM {mission_id} for user {current_user.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to update scheduled mission"}), 500
 
-# PATCH /status and DELETE endpoints remain largely the same but should also return is_all_day
+# ... (PATCH /status and DELETE routes remain the same, ensuring they return is_all_day correctly) ...
 @scheduled_mission_bp.route('/<uuid:mission_id>/status', methods=['PATCH'])
 @token_required
 def update_scheduled_mission_status(mission_id):
@@ -388,8 +381,8 @@ def update_scheduled_mission_status(mission_id):
                                    .filter_by(id=mission_id, user_id=current_user.id).first()
         if not mission: return jsonify({"error": "SM not found."}), 404
         old_status = mission.status
-        if old_status == new_status.upper(): # No change
-             return jsonify({ # Return full data for consistency
+        if old_status == new_status.upper(): 
+             return jsonify({ 
                 "id": str(mission.id), "title": mission.title, "description": mission.description,
                 "energy_value": mission.energy_value, "points_value": mission.points_value,
                 "start_datetime": mission.start_datetime.isoformat(), "end_datetime": mission.end_datetime.isoformat(),
@@ -405,10 +398,12 @@ def update_scheduled_mission_status(mission_id):
         points_change = 0; log_reason = None; is_completion_event = False
         if mission.status == 'COMPLETED':
             points_change = mission.points_value; log_reason = f"Completed SM: {mission.title}"; is_completion_event = True
-        elif old_status == 'COMPLETED':
+        elif old_status == 'COMPLETED': # Reverting from COMPLETED
             points_change = -mission.points_value; log_reason = f"Reverted SM: {mission.title}"; is_completion_event = False
-        if log_reason:
+        
+        if log_reason: # Only call if there's a gamification impact
             update_user_stats_after_mission(current_user, points_change, mission.energy_value, 'SCHEDULED_MISSION', mission.id, log_reason, is_completion_event)
+        
         db.session.commit()
         return jsonify({
             "id": str(mission.id), "title": mission.title, "description": mission.description,
@@ -432,8 +427,10 @@ def delete_scheduled_mission(mission_id):
     try:
         mission = ScheduledMission.query.filter_by(id=mission_id, user_id=current_user.id).first()
         if not mission: return jsonify({"error": "SM not found."}), 404
-        if mission.status == 'COMPLETED':
+        
+        if mission.status == 'COMPLETED': # If deleting a completed mission, revert points/energy log
              update_user_stats_after_mission(current_user, -mission.points_value, mission.energy_value, 'SCHEDULED_MISSION', mission.id, f"Deleted completed SM: {mission.title}", False)
+        
         mission.tags = [] # type: ignore 
         db.session.flush() 
         title_deleted = mission.title; db.session.delete(mission); db.session.commit()
@@ -452,15 +449,14 @@ def undo_scheduled_mission_completion(mission_id):
 
     try:
         mission.status = 'PENDING'
-        # Revert points and deactivate energy log entry
         update_user_stats_after_mission(
             user=current_user,
-            points_to_change=-mission.points_value, # Subtract points
-            energy_value_for_log=mission.energy_value, # Original energy value
+            points_to_change=-mission.points_value, 
+            energy_value_for_log=mission.energy_value, 
             source_entity_type='SCHEDULED_MISSION',
             source_entity_id=mission.id,
             reason_text=f"Undo completion of SM: {mission.title}",
-            is_completion=False # Indicates a reversion
+            is_completion=False
         )
         db.session.commit()
         return jsonify({
@@ -472,3 +468,8 @@ def undo_scheduled_mission_completion(mission_id):
         db.session.rollback()
         current_app.logger.error(f"Error undoing SM {mission.id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to undo mission completion"}), 500
+
+def parse_date_query_param(date_str): # Helper
+    if not date_str: return None
+    try: return date.fromisoformat(date_str.split('T')[0]) 
+    except ValueError: return None

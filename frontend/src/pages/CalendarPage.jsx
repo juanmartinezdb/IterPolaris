@@ -2,25 +2,32 @@
 import React, { useState, useEffect, useCallback, useContext, useRef, useMemo } from 'react';
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
-import { format as formatDateFns } from 'date-fns/format';
-import { parse as parseDateFns } from 'date-fns/parse';
-import { startOfWeek as startOfWeekDateFns } from 'date-fns/startOfWeek';
-import { getDay as getDayDateFns } from 'date-fns/getDay';
+import { 
+    format as formatDateFns, 
+    parse as parseDateFns, 
+    startOfWeek as startOfWeekDateFns, 
+    endOfWeek as endOfWeekDateFns, 
+    startOfMonth, 
+    endOfMonth, 
+    startOfDay, 
+    endOfDay, 
+    getDay as getDayDateFns // Added getDay and aliased it
+} from 'date-fns';
 import enGB from 'date-fns/locale/en-GB';
 import axios from 'axios';
 
-import { UserContext } from '../contexts/UserContext';
-import CustomEventComponent from '../components/calendar/CustomEventComponent';
-import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm';
-import CalendarMissionPool from '../components/calendar/CalendarMissionPool';
-import EventActionMenu from '../components/calendar/EventActionMenu';
-import HabitTemplateForm from '../components/habits/HabitTemplateForm';
-import Modal from '../components/common/Modal';
-import ConfirmationDialog from '../components/common/ConfirmationDialog';
+import { UserContext } from '../contexts/UserContext'; //
+import CustomEventComponent from '../components/calendar/CustomEventComponent'; //
+import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm'; //
+import CalendarMissionPool from '../components/calendar/CalendarMissionPool'; //
+import EventActionMenu from '../components/calendar/EventActionMenu'; //
+import HabitTemplateForm from '../components/habits/HabitTemplateForm'; //
+import Modal from '../components/common/Modal'; //
+import ConfirmationDialog from '../components/common/ConfirmationDialog'; //
 
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
-import '../styles/calendar.css';
+import 'react-big-calendar/lib/css/react-big-calendar.css'; //
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css'; //
+import '../styles/calendar.css'; //
 
 const locales = { 'en-GB': enGB };
 const localizer = dateFnsLocalizer({
@@ -41,7 +48,7 @@ const API_POOL_MISSIONS_URL = `${API_BASE_URL}/pool-missions`;
 const API_QUESTS_URL = `${API_BASE_URL}/quests`;
 
 function CalendarPage({ activeTagFilters }) {
-    const { currentUser, refreshUserStatsAndEnergy } = useContext(UserContext);
+    const { currentUser, refreshUserStatsAndEnergy } = useContext(UserContext); //
     const [events, setEvents] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -55,6 +62,8 @@ function CalendarPage({ activeTagFilters }) {
     const [currentView, setCurrentView] = useState(() => {
         return localStorage.getItem('calendarLastView') || Views.WEEK;
     });
+    const [currentCalendarRange, setCurrentCalendarRange] = useState(null);
+
 
     const [showModal, setShowModal] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -68,7 +77,7 @@ function CalendarPage({ activeTagFilters }) {
     const [refreshPoolCounter, setRefreshPoolCounter] = useState(0);
 
     const [actionMenu, setActionMenu] = useState({ visible: false, x: 0, y: 0, event: null });
-    const calendarRef = useRef(null); // Ref for the main calendar div for positioning calculations
+    const calendarRef = useRef(null);
 
     const [showConfirmDeleteDialog, setShowConfirmDeleteDialog] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
@@ -90,17 +99,24 @@ function CalendarPage({ activeTagFilters }) {
         } catch (err) { console.error("CalendarPage: Failed to fetch quests for colors:", err); }
     }, [currentUser]);
 
-    const fetchCalendarEvents = useCallback(async (forceRefresh = false) => {
-        if (!currentUser) return;
-        if (!forceRefresh && isLoading) return;
+    const fetchCalendarEvents = useCallback(async (range) => {
+        if (!currentUser || !range) {
+            setEvents([]); // Clear events if no user or range
+            return;
+        }
+        // Do not add isLoading to dependencies of this useCallback
+        // if (isLoading) return; // This might be too aggressive, let the state update handle it.
 
         setIsLoading(true);
         setError(null);
         const token = localStorage.getItem('authToken');
+        
         const params = new URLSearchParams();
         if (activeTagFilters && activeTagFilters.length > 0) {
             activeTagFilters.forEach(tagId => params.append('tags', tagId));
         }
+        params.append('start_date', range.start.toISOString().split('T')[0]);
+        params.append('end_date', range.end.toISOString().split('T')[0]);
 
         try {
             const [scheduledResponse, habitsResponse] = await Promise.all([
@@ -125,11 +141,54 @@ function CalendarPage({ activeTagFilters }) {
         } catch (err) {
             setError(err.response?.data?.error || "Failed to fetch events.");
             setEvents([]);
-        } finally { setIsLoading(false); }
-    }, [currentUser, isLoading, activeTagFilters]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentUser, activeTagFilters]); // Removed isLoading from dependencies
+
+
+    // Function to determine the range based on view and date
+    const getRangeForView = useCallback((date, view) => {
+        let start, end;
+        const localDate = new Date(date); 
+        switch (view) {
+            case Views.MONTH:
+                start = startOfMonth(localDate);
+                end = endOfMonth(localDate);
+                break;
+            case Views.WEEK:
+                start = startOfWeekDateFns(localDate, { locale: locales['en-GB'], weekStartsOn: 1 });
+                end = endOfWeekDateFns(localDate, { locale: locales['en-GB'], weekStartsOn: 1 });
+                break;
+            case Views.DAY:
+                start = startOfDay(localDate);
+                end = endOfDay(localDate);
+                break;
+            default: 
+                start = startOfWeekDateFns(localDate, { locale: locales['en-GB'], weekStartsOn: 1 });
+                end = endOfWeekDateFns(localDate, { locale: locales['en-GB'], weekStartsOn: 1 });
+        }
+        return { start, end };
+    }, []); // locales is constant, date-fns functions are stable
+
+    // Initialize currentCalendarRange and fetch on mount or when date/view changes
+    useEffect(() => {
+        const initialRange = getRangeForView(currentDate, currentView);
+        setCurrentCalendarRange(initialRange);
+    }, [currentDate, currentView, getRangeForView]);
+
+    // Effect to fetch events when range or filters change
+     useEffect(() => {
+        if (currentCalendarRange && currentUser) {
+            fetchCalendarEvents(currentCalendarRange);
+        } else if (!currentUser) {
+            setEvents([]); // Clear events if user logs out
+        }
+    }, [currentCalendarRange, fetchCalendarEvents, currentUser]);
+
 
     useEffect(() => { fetchQuestColors(); }, [fetchQuestColors]);
-    useEffect(() => { if (currentUser) { fetchCalendarEvents(true); } else { setEvents([]); } }, [currentUser, activeTagFilters, fetchCalendarEvents]);
+    // Removed the initial fetch here, it's now handled by the range change logic
 
     const components = useMemo(() => ({
         event: (props) => <CustomEventComponent {...props} questColors={questColors} />
@@ -169,9 +228,41 @@ function CalendarPage({ activeTagFilters }) {
         return tooltipText;
     }, []);
 
-    const handleNavigate = useCallback((newDate) => { setCurrentDate(new Date(newDate)); }, []);
-    const handleView = useCallback((newView) => { setCurrentView(newView); }, []);
     const closeActionMenu = useCallback(() => { setActionMenu({ visible: false, x: 0, y: 0, event: null }); }, []);
+
+     const handleNavigate = useCallback((newDate, view) => {
+        setCurrentDate(new Date(newDate));
+        // currentView might not update immediately if it's also part of the call, use provided 'view'
+        const effectiveView = view || currentView; 
+        const newRange = getRangeForView(newDate, effectiveView);
+        setCurrentCalendarRange(newRange);
+    }, [currentView, getRangeForView]);
+
+    const handleView = useCallback((newView) => {
+        setCurrentView(newView);
+        const newRange = getRangeForView(currentDate, newView);
+        setCurrentCalendarRange(newRange);
+    }, [currentDate, getRangeForView]);
+
+    // onRangeChange might be redundant if onNavigate and onView cover all range updates.
+    // If BigCalendar triggers onRangeChange with more precise ranges for specific views (like Agenda),
+    // then it's useful. For now, let's ensure our getRangeForView is robust.
+    const handleRangeChange = useCallback((rangeOrDateArray, view) => {
+        const effectiveView = view || currentView;
+        let newRange;
+        if (typeof rangeOrDateArray?.start === 'object' && typeof rangeOrDateArray?.end === 'object') { // Week or Day view typically
+            newRange = { start: new Date(rangeOrDateArray.start), end: new Date(rangeOrDateArray.end) };
+        } else if (Array.isArray(rangeOrDateArray) && rangeOrDateArray.length > 0 && effectiveView === Views.MONTH) { // Month view often gives an array of days
+            newRange = getRangeForView(rangeOrDateArray[Math.floor(rangeOrDateArray.length / 2)], effectiveView); // Use middle day to get month range
+        } else if (rangeOrDateArray instanceof Date) { // Agenda view might pass a single date
+             newRange = getRangeForView(rangeOrDateArray, Views.AGENDA); // Or adjust for agenda's typical range
+        }
+        else {
+            newRange = getRangeForView(currentDate, effectiveView); // Fallback
+        }
+        setCurrentCalendarRange(newRange);
+    }, [currentDate, currentView, getRangeForView]);
+
 
     const handleSelectSlot = useCallback(({ start, end, slots }) => {
         closeActionMenu();
@@ -191,8 +282,8 @@ function CalendarPage({ activeTagFilters }) {
         let x = domEvent.clientX - calendarRect.left;
         let y = domEvent.clientY - calendarRect.top;
         const isScheduledMission = eventData.resource?.type === 'SCHEDULED_MISSION';
-        const menuWidth = 200;
-        const menuHeight = isScheduledMission ? 200 : 160;
+        const menuWidth = 200; 
+        const menuHeight = isScheduledMission ? 200 : 160; 
         if (x + menuWidth > calendarRect.width) x = calendarRect.width - menuWidth - 5;
         if (y + menuHeight > calendarRect.height) y = calendarRect.height - menuHeight - 5;
         x = Math.max(5, x);
@@ -200,7 +291,6 @@ function CalendarPage({ activeTagFilters }) {
         setActionMenu({ visible: true, x, y, event: eventData });
     }, []);
 
-    // REMOVED the problematic useEffect for click-outside here, as it's handled in EventActionMenu
 
     const handleMoveToPool = async (scheduledMissionOriginal) => {
         const token = localStorage.getItem('authToken');
@@ -216,14 +306,14 @@ function CalendarPage({ activeTagFilters }) {
             await axios.post(API_POOL_MISSIONS_URL, poolMissionPayload, { headers: { Authorization: `Bearer ${token}` } });
             await axios.delete(`${API_SCHEDULED_MISSIONS_URL}/${scheduledMissionOriginal.id}`, { headers: { Authorization: `Bearer ${token}` } });
             setInfoMessage(`"${scheduledMissionOriginal.title}" moved to Mission Pool.`); clearInfoMessage();
-            fetchCalendarEvents(true);
+            if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); // Re-fetch for current range
             setRefreshPoolCounter(prev => prev + 1);
             refreshUserStatsAndEnergy();
         } catch (err) { setError(err.response?.data?.error || "Failed to move mission to pool."); }
     };
 
-    const handleEventAction = async (action, eventData) => { /* ... (same as previous, ensure no `menuRef` usage here) ... */
-        closeActionMenu(); // Ensure menu closes regardless
+    const handleEventAction = async (action, eventData) => {
+        closeActionMenu();
         const { type, original, habit_template_id } = eventData.resource;
         const token = localStorage.getItem('authToken');
         let statusToSet = '';
@@ -242,7 +332,7 @@ function CalendarPage({ activeTagFilters }) {
             if (statusToSet) {
                 try {
                     await axios.patch(`${API_SCHEDULED_MISSIONS_URL}/${original.id}/status`, { status: statusToSet }, { headers: { Authorization: `Bearer ${token}` } });
-                    fetchCalendarEvents(true); refreshUserStatsAndEnergy();
+                    if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); refreshUserStatsAndEnergy();
                 } catch (err) { setError(err.response?.data?.error || `Failed to mark SM as ${statusToSet.toLowerCase()}.`); }
             }
         } else if (type === 'HABIT_OCCURRENCE') {
@@ -263,20 +353,20 @@ function CalendarPage({ activeTagFilters }) {
                         if (!habit_template_id) { setError("Cannot extend: Template ID missing."); return; }
                         const extendResponse = await axios.post(`${API_HABIT_TEMPLATES_URL}/${habit_template_id}/generate-occurrences`, {}, { headers: { Authorization: `Bearer ${token}` } });
                         setInfoMessage(extendResponse.data.message || `Occurrences extended for "${original.title}".`); clearInfoMessage();
-                        fetchCalendarEvents(true);
+                        if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange);
                     } catch (err) { setError(err.response?.data?.error || "Failed to extend habit."); } return;
                 default: console.warn("Unknown HO action:", action); return;
             }
             if (statusToSet) {
                 try {
                     await axios.patch(`${API_HABIT_OCCURRENCES_URL}/${original.id}/status`, { status: statusToSet }, { headers: { Authorization: `Bearer ${token}` } });
-                    fetchCalendarEvents(true); refreshUserStatsAndEnergy();
+                    if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); refreshUserStatsAndEnergy();
                 } catch (err) { setError(err.response?.data?.error || `Failed to update HO status.`); }
             }
         }
     };
     
-    const handleConfirmDeleteItemAction = async () => { /* ... (same as previous) ... */
+    const handleConfirmDeleteItemAction = async () => {
         if (!itemToDelete || !itemTypeToDelete) return;
         const token = localStorage.getItem('authToken');
         let url = ''; let successMessage = '';
@@ -290,12 +380,12 @@ function CalendarPage({ activeTagFilters }) {
         try {
             await axios.delete(url, { headers: { Authorization: `Bearer ${token}` } });
             setInfoMessage(successMessage); clearInfoMessage();
-            fetchCalendarEvents(true); refreshUserStatsAndEnergy();
+            if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); refreshUserStatsAndEnergy();
         } catch (err) { setError(err.response?.data?.error || `Failed to delete ${itemTypeToDelete.replace('_', ' ').toLowerCase()}.`); }
         finally { setShowConfirmDeleteDialog(false); setItemToDelete(null); setItemTypeToDelete(''); }
     };
 
-    const onEventOperation = useCallback(async (operationType, { event, start, end }) => { /* ... (same as previous) ... */
+    const onEventOperation = useCallback(async (operationType, { event, start, end }) => {
         closeActionMenu();
         const { original } = event.resource;
         if (event.resource.type !== 'SCHEDULED_MISSION') return;
@@ -309,20 +399,26 @@ function CalendarPage({ activeTagFilters }) {
         };
         try {
             await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${original.id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
-            fetchCalendarEvents(true);
+            if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange);
         } catch (err) {
             setError(err.response?.data?.error || `Failed to ${operationType === 'move' ? 'move' : 'resize'} event.`);
-            fetchCalendarEvents(true);
+            if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); // Re-fetch to revert optimistic update or show server state
         }
-    }, [fetchCalendarEvents, closeActionMenu]);
+    }, [currentCalendarRange, fetchCalendarEvents, closeActionMenu]); // Added dependencies
     
-    const onEventDrop = useCallback((args) => { /* ... (same as previous) ... */
+    const onEventDrop = useCallback((args) => {
         if (args.event.resource?.type === 'SCHEDULED_MISSION') { onEventOperation('move', args); } 
-        else { setInfoMessage("Habit occurrences cannot be rescheduled. Edit the habit definition."); clearInfoMessage(); fetchCalendarEvents(true); }
-    }, [onEventOperation, fetchCalendarEvents, clearInfoMessage, setInfoMessage]);
+        else { 
+            setInfoMessage("Habit occurrences cannot be rescheduled. Edit the habit definition."); 
+            clearInfoMessage(); 
+            if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); // Refresh to revert visual change
+        }
+    }, [onEventOperation, currentCalendarRange, fetchCalendarEvents, clearInfoMessage, setInfoMessage]); // Added dependencies
+
     const onEventResize = useCallback((args) => onEventOperation('resize', args), [onEventOperation]);
     const handleDragStartExternal = useCallback((poolMission) => { setDraggedExternalMission(poolMission); }, []);
-    const onDropFromOutside = useCallback(async ({ start, end, allDay }) => { /* ... (same as previous) ... */
+    
+    const onDropFromOutside = useCallback(async ({ start, end, allDay }) => {
         closeActionMenu();
         if (!draggedExternalMission) return;
         const token = localStorage.getItem('authToken');
@@ -338,14 +434,16 @@ function CalendarPage({ activeTagFilters }) {
         try {
             await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, { headers: { Authorization: `Bearer ${token}` } });
             await axios.delete(`${API_POOL_MISSIONS_URL}/${draggedExternalMission.id}`, { headers: { Authorization: `Bearer ${token}` } });
-            fetchCalendarEvents(true); setRefreshPoolCounter(prev => prev + 1); refreshUserStatsAndEnergy();
+            if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange); 
+            setRefreshPoolCounter(prev => prev + 1); refreshUserStatsAndEnergy();
             setInfoMessage(`"${draggedExternalMission.title}" scheduled successfully from pool.`); clearInfoMessage();
         } catch (err) {
             console.error("Failed to convert pool mission:", err.response?.data || err.message);
             setError(err.response?.data?.error || "Failed to convert pool mission.");
         } finally { setDraggedExternalMission(null); }
-    }, [draggedExternalMission, fetchCalendarEvents, refreshUserStatsAndEnergy, closeActionMenu, clearInfoMessage, setInfoMessage]);
-    const dragFromOutsideItem = useCallback(() => { /* ... (same as previous) ... */
+    }, [draggedExternalMission, currentCalendarRange, fetchCalendarEvents, refreshUserStatsAndEnergy, closeActionMenu, clearInfoMessage, setInfoMessage]); // Added dependencies
+
+    const dragFromOutsideItem = useCallback(() => {
         if (!draggedExternalMission) return null;
         const start = new Date(); const end = new Date(start.getTime() + (draggedExternalMission.duration_minutes || 60) * 60 * 1000);
         return { title: `(Pool) ${draggedExternalMission.title}`, start, end };
@@ -354,7 +452,7 @@ function CalendarPage({ activeTagFilters }) {
 
     const handleFormSubmission = async (isConversion = false) => {
         setShowModal(false); setEditingItem(null); setFormType(''); setSlotInfoForNewMission(null);
-        fetchCalendarEvents(true);
+        if (currentCalendarRange) fetchCalendarEvents(currentCalendarRange);
         if (isConversion) setRefreshPoolCounter(prev => prev + 1);
         refreshUserStatsAndEnergy();
     };
@@ -386,6 +484,7 @@ function CalendarPage({ activeTagFilters }) {
                         view={currentView}
                         onNavigate={handleNavigate}
                         onView={handleView}
+                        onRangeChange={handleRangeChange} 
                         startAccessor="start"
                         endAccessor="end"
                         allDayAccessor="allDay"

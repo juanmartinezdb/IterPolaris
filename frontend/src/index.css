@@ -29,6 +29,11 @@
   --color-warning: #FFD700; 
   --color-purple-mystic: #6D21A9; /* For Habit Occurrences as a default */
 
+   --color-time-madrugada: #1C2A4F; /* Ejemplo: Azul oscuro/morado */
+  --color-time-manana: #529BFF;    /* Ejemplo: Azul claro/amarillo suave */
+  --color-time-tarde: #B08D57;     /* Ejemplo: Pergamino/dorado cálido */
+  --color-time-noche: #304057;      /* Ejemplo: Azul más oscuro/plateado */
+
   /* Transiciones */
   --transition-swift: all 0.3s ease-in-out;
 
