@@ -1,7 +1,7 @@
 // frontend/src/components/habits/HabitTemplateForm.jsx
-import React, { useState, useEffect, useContext } from 'react'; // Removed useCallback as not directly used here for optimization
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-import { UserContext } from '../../contexts/UserContext'; // For current user if needed, though template operations are user-scoped by backend
+import { UserContext } from '../../contexts/UserContext';
 import QuestSelector from '../quests/QuestSelector';
 import TagSelector from '../tags/TagSelector';
 import '../../styles/habittemplates.css';
@@ -13,35 +13,34 @@ const formatDateForInput = (isoOrDateString) => {
     if (!isoOrDateString) return '';
     try {
         const date = new Date(isoOrDateString);
-        // Adjust for timezone offset to correctly display local date in input type="date"
         const userTimezoneOffset = date.getTimezoneOffset() * 60000;
         const localDate = new Date(date.getTime() - userTimezoneOffset);
         return localDate.toISOString().split('T')[0];
     } catch (e) { return ''; }
 };
 
-const formatTimeForInput = (timeString) => { // Expects "HH:MM:SS" or "HH:MM"
+const formatTimeForInput = (timeString) => {
     if (!timeString || typeof timeString !== 'string') return '';
-    return timeString.slice(0, 5); // Input type="time" wants "HH:MM"
+    return timeString.slice(0, 5);
 };
 
 const DAYS_OF_WEEK = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-const RECURRENCE_TYPE_DAILY = 'DAILY'; // As per PRD, though your backend might use "DAILY" not ["DAILY"]
+const RECURRENCE_TYPE_DAILY = 'DAILY';
 
-function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
-    const { currentUser } = useContext(UserContext); // For user context if needed
+function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQuestId = null }) { // Added initialQuestId
+    const { currentUser } = useContext(UserContext);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         defaultEnergyValue: 5,
         defaultPointsValue: 10,
-        recByDay: [], // e.g., ['MO', 'WE'] or ['DAILY']
-        recStartTime: '', // HH:MM
+        recByDay: [],
+        recStartTime: '',
         recDurationMinutes: 60,
         recPatternStartDate: formatDateForInput(new Date().toISOString()),
         recEndsOnDate: '',
         isActive: true,
-        questId: null,
+        questId: initialQuestId, // Use initialQuestId
         selectedTagIds: []
     });
 
@@ -64,36 +63,41 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
                     recPatternStartDate: formatDateForInput(templateToEdit.rec_pattern_start_date),
                     recEndsOnDate: formatDateForInput(templateToEdit.rec_ends_on_date),
                     isActive: templateToEdit.is_active === undefined ? true : templateToEdit.is_active,
-                    questId: templateToEdit.quest_id || null,
+                    questId: templateToEdit.quest_id || initialQuestId || null, // Prioritize existing, then initial
                     selectedTagIds: templateToEdit.tags ? templateToEdit.tags.map(tag => tag.id) : []
                 });
             } else if (!isEditing) {
-                setIsFetchingDefaultQuest(true);
-                const token = localStorage.getItem('authToken');
-                try {
-                    const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
-                    const quests = response.data || [];
-                    const defaultQuest = quests.find(q => q.is_default_quest);
-                    setFormData(prev => ({
-                        ...prev,
-                        title: '', description: '', defaultEnergyValue: 5, defaultPointsValue: 10,
-                        recByDay: [], recStartTime: '', recDurationMinutes: 60, 
-                        recPatternStartDate: formatDateForInput(new Date().toISOString()), recEndsOnDate: '',
-                        isActive: true, selectedTagIds: [],
-                        questId: defaultQuest?.id || (quests.length > 0 ? quests[0].id : null)
-                    }));
-                } catch (err) {
-                    console.error("HabitTemplateForm: Failed to fetch default quest:", err);
-                    setFormData(prev => ({ ...prev, questId: null }));
-                } finally { setIsFetchingDefaultQuest(false); }
+                let questToSet = initialQuestId;
+                if (!questToSet) { // Only fetch default if no initialQuestId was provided
+                    setIsFetchingDefaultQuest(true);
+                    const token = localStorage.getItem('authToken');
+                    try {
+                        const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
+                        const quests = response.data || [];
+                        const defaultQuest = quests.find(q => q.is_default_quest);
+                        questToSet = defaultQuest?.id || (quests.length > 0 ? quests[0].id : null);
+                    } catch (err) {
+                        console.error("HabitTemplateForm: Failed to fetch default quest:", err);
+                    } finally {
+                        setIsFetchingDefaultQuest(false);
+                    }
+                }
+                setFormData(prev => ({
+                    ...prev,
+                    title: '', description: '', defaultEnergyValue: 5, defaultPointsValue: 10,
+                    recByDay: [], recStartTime: '', recDurationMinutes: 60, 
+                    recPatternStartDate: formatDateForInput(new Date().toISOString()), recEndsOnDate: '',
+                    isActive: true, selectedTagIds: [],
+                    questId: questToSet
+                }));
             }
         };
         loadInitialData();
-    }, [templateToEdit, isEditing]);
+    }, [templateToEdit, isEditing, initialQuestId]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setError(''); // Clear error on change
+        setError(''); 
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -129,11 +133,10 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); // Ensure default form submission is prevented
+        e.preventDefault(); 
         setError('');
         setIsLoading(true);
 
-        // Basic Validations
         if (!formData.title.trim()) {
             setError('Title is required.'); setIsLoading(false); return;
         }
@@ -153,14 +156,12 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
             setError('Duration must be a positive number if provided.'); setIsLoading(false); return;
         }
 
-
         const templateDataPayload = {
             title: formData.title.trim(),
             description: formData.description.trim() || null,
             default_energy_value: parseInt(formData.defaultEnergyValue, 10),
             default_points_value: parseInt(formData.defaultPointsValue, 10),
             rec_by_day: formData.recByDay,
-            // Backend expects HH:MM:SS or null for TIME field
             rec_start_time: formData.recStartTime ? `${formData.recStartTime}:00` : null, 
             rec_duration_minutes: formData.recDurationMinutes ? parseInt(formData.recDurationMinutes, 10) : null,
             rec_pattern_start_date: formData.recPatternStartDate,
@@ -174,12 +175,13 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel }) {
         const config = { headers: { 'Authorization': `Bearer ${token}` } };
 
         try {
-            if (isEditing && templateToEdit?.id) { // Ensure templateToEdit.id exists for editing
-                await axios.put(`${API_HABIT_TEMPLATES_URL}/${templateToEdit.id}`, templateDataPayload, config);
+            let response;
+            if (isEditing && templateToEdit?.id) { 
+                response = await axios.put(`${API_HABIT_TEMPLATES_URL}/${templateToEdit.id}`, templateDataPayload, config);
             } else {
-                await axios.post(API_HABIT_TEMPLATES_URL, templateDataPayload, config);
+                response = await axios.post(API_HABIT_TEMPLATES_URL, templateDataPayload, config);
             }
-            if (onFormSubmit) onFormSubmit(); // Call the callback passed from parent
+            if (onFormSubmit) onFormSubmit(response.data); 
         } catch (err) {
             console.error("Failed to save habit template:", err.response || err);
             const errorData = err.response?.data;

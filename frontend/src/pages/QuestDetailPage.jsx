@@ -6,49 +6,52 @@ import { UserContext } from '../contexts/UserContext';
 
 import PoolMissionList from '../components/missions/pool/PoolMissionList';
 import ScheduledMissionList from '../components/missions/scheduled/ScheduledMissionList';
-import HabitOccurrenceList from '../components/habits/HabitOccurrenceList'; // Assuming a similar list component exists or we'll adapt
+// import HabitOccurrenceList from '../components/habits/HabitOccurrenceList'; // Replaced
+import HabitTemplateList from '../components/habits/HabitTemplateList'; // Added
 
 import PoolMissionForm from '../components/missions/pool/PoolMissionForm';
 import ScheduledMissionForm from '../components/missions/scheduled/ScheduledMissionForm';
-import HabitTemplateForm from '../components/habits/HabitTemplateForm'; // For adding habits (template creates occurrences)
+import HabitTemplateForm from '../components/habits/HabitTemplateForm';
 import Modal from '../components/common/Modal';
 import ConfirmationDialog from '../components/common/ConfirmationDialog';
 
-
 import '../styles/quests.css';
-import '../styles/dashboard.css'; // For panel-like appearance
+import '../styles/dashboard.css';
 import '../styles/poolmissions.css';
 import '../styles/scheduledmissions.css';
-import '../styles/habits.css';
-
+import '../styles/habittemplates.css'; // Changed from habits.css
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 function QuestDetailPage({ activeTagFilters }) {
     const { questId } = useParams();
+    const navigate = useNavigate();
+    const { currentUser, refreshUserStatsAndEnergy } = useContext(UserContext);
+
     const [questDetails, setQuestDetails] = useState(null);
     const [poolMissions, setPoolMissions] = useState([]);
     const [scheduledMissions, setScheduledMissions] = useState([]);
-    const [habitOccurrences, setHabitOccurrences] = useState([]);
+    const [habitTemplates, setHabitTemplates] = useState([]); // Changed from habitOccurrences
     const [questColors, setQuestColors] = useState({});
-
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const { currentUser, refreshUserStatsAndEnergy } = useContext(UserContext);
-    const navigate = useNavigate();
-
-    // State for modals
+    
     const [showModal, setShowModal] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalContent, setModalContent] = useState(null);
     const [itemToEdit, setItemToEdit] = useState(null);
-    const [itemTypeForForm, setItemTypeForForm] = useState('');
-    const [slotInfoForSMForm, setSlotInfoForSMForm] = useState(null);
+    // itemTypeForForm is useful to distinguish which form to render
+    // const [itemTypeForForm, setItemTypeForForm] = useState(''); NO LONGER USED, each button calls specific openForm
 
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [itemTypeToDelete, setItemTypeToDelete] = useState('');
+    const [feedbackMessage, setFeedbackMessage] = useState(''); // For success messages
+
+    const clearFeedback = useCallback(() => {
+        setTimeout(() => setFeedbackMessage(''), 3000);
+    }, []);
 
 
     const fetchQuestData = useCallback(async () => {
@@ -60,39 +63,34 @@ function QuestDetailPage({ activeTagFilters }) {
         setError('');
         const token = localStorage.getItem('authToken');
         const headers = { 'Authorization': `Bearer ${token}` };
-        const params = new URLSearchParams();
-        params.append('quest_id', questId);
         
-        // Apply global tag filters if any
+        const baseParams = new URLSearchParams();
         if (activeTagFilters && activeTagFilters.length > 0) {
-            activeTagFilters.forEach(tagId => params.append('tags', tagId));
+            activeTagFilters.forEach(tagId => baseParams.append('tags', tagId));
         }
 
+        const questSpecificParams = new URLSearchParams(baseParams);
+        questSpecificParams.append('quest_id', questId);
+        
         try {
             const [
                 questDetailsRes, 
                 poolMissionsRes, 
                 scheduledMissionsRes, 
-                allHabitOccurrencesRes, // Fetch all first, then filter
-                allQuestsRes // For colors
+                habitTemplatesRes, // Changed from allHabitOccurrencesRes
+                allQuestsRes 
             ] = await Promise.all([
                 axios.get(`${API_BASE_URL}/quests/${questId}`, { headers }),
-                axios.get(`${API_BASE_URL}/pool-missions`, { headers, params }), // Filters include quest_id
-                axios.get(`${API_BASE_URL}/scheduled-missions`, { headers, params }), // Filters include quest_id
-                axios.get(`${API_BASE_URL}/habit-occurrences`, { // Fetches all user occurrences, then filters locally by quest_id
-                    headers, 
-                    params: (()=>{ const p = new URLSearchParams(params); p.delete('quest_id'); return p; })() // Remove quest_id for this call
-                }),
-                axios.get(`${API_BASE_URL}/quests`, { headers })
+                axios.get(`${API_BASE_URL}/pool-missions`, { headers, params: questSpecificParams }),
+                axios.get(`${API_BASE_URL}/scheduled-missions`, { headers, params: questSpecificParams }),
+                axios.get(`${API_BASE_URL}/habit-templates`, { headers, params: questSpecificParams }), // Fetch templates for this quest
+                axios.get(`${API_BASE_URL}/quests`, { headers }) // For all quest colors
             ]);
 
             setQuestDetails(questDetailsRes.data);
             setPoolMissions(poolMissionsRes.data || []);
             setScheduledMissions(scheduledMissionsRes.data || []);
-            
-            // Client-side filter for habit occurrences by quest_id
-            const filteredHabitOccurrences = (allHabitOccurrencesRes.data || []).filter(ho => ho.quest_id === questId);
-            setHabitOccurrences(filteredHabitOccurrences);
+            setHabitTemplates(habitTemplatesRes.data || []); // Set habit templates
 
             const colors = {};
             (allQuestsRes.data || []).forEach(quest => { colors[quest.id] = quest.color; });
@@ -101,6 +99,9 @@ function QuestDetailPage({ activeTagFilters }) {
         } catch (err) {
             console.error(`Failed to fetch data for quest ${questId}:`, err);
             setError(err.response?.data?.error || `Failed to load Quest data.`);
+            if (err.response?.status === 404) {
+                setQuestDetails(null); // Ensure questDetails is null if quest not found
+            }
         } finally {
             setIsLoading(false);
         }
@@ -110,64 +111,64 @@ function QuestDetailPage({ activeTagFilters }) {
         fetchQuestData();
     }, [fetchQuestData]);
 
-    const handleSuccessfulFormSubmit = () => {
+    const handleSuccessfulFormSubmit = (message) => {
         setShowModal(false);
         setItemToEdit(null);
-        setItemTypeForForm('');
-        fetchQuestData(); // Refresh all data for the quest
+        fetchQuestData(); 
         refreshUserStatsAndEnergy();
+        if(message) {
+            setFeedbackMessage(message);
+            clearFeedback();
+        }
     };
     
-    const openFormModal = (type, itemData = null) => {
-        setItemTypeForForm(type);
-        setItemToEdit(itemData); // null for create, item for edit
-        setSlotInfoForSMForm(null); // Reset slotInfo
-
-        switch (type) {
-            case 'PoolMission':
-                setModalTitle(itemData ? 'Edit Pool Mission' : 'Create Pool Mission');
-                setModalContent(
-                    <PoolMissionForm
-                        missionToEdit={itemData}
-                        onFormSubmit={handleSuccessfulFormSubmit}
-                        onCancel={() => setShowModal(false)}
-                        // Pass questId directly if creating, QuestSelector will handle it
-                        initialQuestId={!itemData ? questId : null} 
-                    />
-                );
-                break;
-            case 'ScheduledMission':
-                setModalTitle(itemData ? 'Edit Scheduled Mission' : 'Create Scheduled Mission');
-                 // For new SM from Quest Detail, default to today, specific time
-                const defaultStart = itemData ? null : new Date();
-                const defaultEnd = itemData ? null : new Date(new Date().getTime() + 60 * 60 * 1000); // 1 hour later
-                setSlotInfoForSMForm(itemData ? null : {start: defaultStart, end: defaultEnd, allDay: false});
-
-                setModalContent(
-                    <ScheduledMissionForm
-                        missionToEdit={itemData}
-                        slotInfo={itemData ? null : {start: defaultStart, end: defaultEnd, allDay: false, initialQuestId: questId}}
-                        onFormSubmit={handleSuccessfulFormSubmit}
-                        onCancel={() => setShowModal(false)}
-                         initialQuestId={!itemData ? questId : null}
-                    />
-                );
-                break;
-            case 'Habit': // This means creating/editing a Habit Template
-                setModalTitle(itemData ? 'Edit Habit Template' : 'Create Habit Template');
-                setModalContent(
-                    <HabitTemplateForm
-                        templateToEdit={itemData} // If editing a template (might not be directly from this page's item list)
-                        onFormSubmit={handleSuccessfulFormSubmit}
-                        onCancel={() => setShowModal(false)}
-                        initialQuestId={!itemData ? questId : null} // Pass questId for new templates
-                    />
-                );
-                break;
-            default: return;
-        }
+    const openPoolMissionForm = (mission = null) => {
+        setItemToEdit(mission);
+        setModalTitle(mission ? 'Edit Pool Mission' : 'Create Pool Mission');
+        setModalContent(
+            <PoolMissionForm
+                missionToEdit={mission}
+                onFormSubmit={() => handleSuccessfulFormSubmit(mission ? 'Pool Mission updated!' : 'Pool Mission created!')}
+                onCancel={() => setShowModal(false)}
+                initialQuestId={questId} // Pass current questId
+            />
+        );
         setShowModal(true);
     };
+
+    const openScheduledMissionForm = (mission = null) => {
+        setItemToEdit(mission);
+        const defaultStart = mission ? null : new Date();
+        const defaultEnd = mission ? null : new Date(new Date().getTime() + 60 * 60 * 1000);
+        const slotInfo = mission ? null : {start: defaultStart, end: defaultEnd, allDay: false, initialQuestId: questId};
+
+        setModalTitle(mission ? 'Edit Scheduled Mission' : 'Create Scheduled Mission');
+        setModalContent(
+            <ScheduledMissionForm
+                missionToEdit={mission}
+                slotInfo={slotInfo} // Pass for new missions, includes initialQuestId
+                onFormSubmit={() => handleSuccessfulFormSubmit(mission ? 'Scheduled Mission updated!' : 'Scheduled Mission created!')}
+                onCancel={() => setShowModal(false)}
+                // initialQuestId prop no longer needed here if passed via slotInfo
+            />
+        );
+        setShowModal(true);
+    };
+    
+    const openHabitTemplateForm = (template = null) => {
+        setItemToEdit(template);
+        setModalTitle(template ? 'Edit Habit Template' : 'Create Habit Template');
+        setModalContent(
+            <HabitTemplateForm
+                templateToEdit={template}
+                onFormSubmit={() => handleSuccessfulFormSubmit(template ? 'Habit Template updated!' : 'Habit Template created!')}
+                onCancel={() => setShowModal(false)}
+                initialQuestId={questId} // Pass current questId
+            />
+        );
+        setShowModal(true);
+    };
+
 
     const requestDeleteItem = (item, type) => {
         setItemToDelete(item);
@@ -179,21 +180,21 @@ function QuestDetailPage({ activeTagFilters }) {
         if (!itemToDelete || !itemTypeToDelete) return;
         const token = localStorage.getItem('authToken');
         let url = '';
+        let itemTitle = itemToDelete.title;
+
         switch (itemTypeToDelete) {
             case 'PoolMission': url = `${API_BASE_URL}/pool-missions/${itemToDelete.id}`; break;
             case 'ScheduledMission': url = `${API_BASE_URL}/scheduled-missions/${itemToDelete.id}`; break;
-            case 'HabitOccurrence': 
-                // Deleting a habit occurrence might be complex - usually templates are deleted.
-                // For now, let's assume we can delete an occurrence (if backend supports it).
-                // Or this button should rather delete the template. For now, occurrence:
-                url = `${API_BASE_URL}/habit-occurrences/${itemToDelete.id}`; // Placeholder, backend might not have DELETE for single occurrence
-                alert("Deleting single habit occurrences is not standard. Usually, one deletes the template or skips the occurrence. This is a placeholder action.");
-                setShowConfirmDialog(false); return; 
-            default: return;
+            case 'HabitTemplate': url = `${API_BASE_URL}/habit-templates/${itemToDelete.id}`; break;
+            default: 
+                setError("Unknown item type for deletion.");
+                setShowConfirmDialog(false);
+                return;
         }
         try {
             await axios.delete(url, { headers: { 'Authorization': `Bearer ${token}` } });
-            handleSuccessfulFormSubmit(); // Refresh data
+            handleSuccessfulFormSubmit(`${itemTypeToDelete} "${itemTitle}" deleted successfully.`);
+            refreshUserStatsAndEnergy(); 
         } catch (err) {
             setError(err.response?.data?.error || `Failed to delete ${itemTypeToDelete}.`);
         } finally {
@@ -208,16 +209,15 @@ function QuestDetailPage({ activeTagFilters }) {
         setError(null);
         let url = '';
         let payload = { status: newStatus };
-         const originalItemId = item.id; 
+        const originalItemId = item.id; 
 
         if (itemTypeForApiRoute === 'pool-missions') {
-            url = `${API_BASE_URL}/pool-missions/${originalItemId}`; // Pool Missions use PUT for status changes and full updates
-            // Need to send the full payload for PUT
+            url = `${API_BASE_URL}/pool-missions/${originalItemId}`;
             const { type, quest_name, ...originalMissionData } = item;
              payload = { ...originalMissionData, tags: item.tags?.map(t => t.id) || [], status: newStatus };
         } else if (itemTypeForApiRoute === 'scheduled-missions') {
             url = `${API_BASE_URL}/scheduled-missions/${originalItemId}/status`;
-        } else if (itemTypeForApiRoute === 'habit-occurrences') {
+        } else if (itemTypeForApiRoute === 'habit-occurrences') { // This will be used by HabitOccurrenceItem if needed
             url = `${API_BASE_URL}/habit-occurrences/${originalItemId}/status`;
         } else { return; }
 
@@ -226,13 +226,14 @@ function QuestDetailPage({ activeTagFilters }) {
                 ? await axios.put(url, payload, { headers: { 'Authorization': `Bearer ${token}` } })
                 : await axios.patch(url, payload, { headers: { 'Authorization': `Bearer ${token}` } });
 
-            fetchQuestData(); // Refresh panel data
+            fetchQuestData();
             if (response.data && (response.data.user_total_points !== undefined || response.data.user_level !== undefined)) {
                  refreshUserStatsAndEnergy({ total_points: response.data.user_total_points, level: response.data.user_level });
             } else { refreshUserStatsAndEnergy(); }
+            setFeedbackMessage("Status updated!");
+            clearFeedback();
         } catch (err) {
             setError(err.response?.data?.error || `Failed to update ${itemTypeForApiRoute} status.`);
-            console.error(`Error updating ${itemTypeForApiRoute} for item ${originalItemId}:`, err.response?.data || err.message);
         }
     };
     
@@ -243,18 +244,49 @@ function QuestDetailPage({ activeTagFilters }) {
                 { focus_status: newFocusStatus }, { headers: { 'Authorization': `Bearer ${token}` } }
             );
             fetchQuestData(); 
+            setFeedbackMessage("Focus status updated!");
+            clearFeedback();
         } catch (err) { setError(err.response?.data?.error || "Failed to update focus status."); }
+    };
+    
+    const handleGenerateOccurrencesForTemplate = async (template) => {
+        if (!template || !template.is_active) {
+            setError("Cannot extend an inactive habit template.");
+            return;
+        }
+        setError(null);
+        const token = localStorage.getItem('authToken');
+        try {
+            const response = await axios.post(`${API_BASE_URL}/habit-templates/${template.id}/generate-occurrences`, {}, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            setFeedbackMessage(response.data.message || `Occurrences extended for "${template.title}".`);
+            clearFeedback();
+            fetchQuestData(); // Potentially refresh to see if template's `updated_at` changed or if any occurrences are now listed
+        } catch (err) {
+            setError(err.response?.data?.error || "Failed to generate more occurrences.");
+        }
     };
 
 
     if (isLoading) {
         return <div className="page-container quests-page-container"><p>Loading Quest Details...</p></div>;
     }
-    if (error) {
-        return <div className="page-container quests-page-container"><p className="auth-error-message">{error}</p></div>;
+    if (error && !questDetails) { // Show error prominently if quest details themselves failed to load
+        return (
+            <div className="page-container quests-page-container">
+                <p className="auth-error-message">{error}</p>
+                <Link to="/quests-overview">Back to Quests Overview</Link>
+            </div>
+        );
     }
-    if (!questDetails) {
-        return <div className="page-container quests-page-container"><p>Quest not found.</p> <Link to="/quests-overview">Back to Quests</Link></div>;
+    if (!questDetails) { // Handles 404 or other cases where questDetails is null after loading
+        return (
+            <div className="page-container quests-page-container">
+                <p>Quest not found or could not be loaded.</p>
+                <Link to="/quests-overview">Back to Quests Overview</Link>
+            </div>
+        );
     }
 
     const panelHeaderStyle = {
@@ -283,21 +315,22 @@ function QuestDetailPage({ activeTagFilters }) {
                 </Link>
             </div>
             {questDetails.description && <p style={{ marginBottom: '2rem', color: 'var(--color-text-on-dark-muted)' }}>{questDetails.description}</p>}
+            {error && <p className="auth-error-message" style={{textAlign: 'center'}}>{error}</p>}
+            {feedbackMessage && <p className="auth-success-message" style={{textAlign: 'center'}}>{feedbackMessage}</p>}
 
             <div className="dashboard-panels-flow-container">
                 <div className="dashboard-panel">
                     <div style={panelHeaderStyle}>
                         <h3 style={{margin:0}}>Pool Missions</h3>
-                        <button onClick={() => openFormModal('PoolMission')} style={panelAddButtonStyle} title="Add Pool Mission to this Quest">+ Add</button>
+                        <button onClick={() => openPoolMissionForm()} style={panelAddButtonStyle} title="Add Pool Mission to this Quest">+ Add</button>
                     </div>
                     <PoolMissionList
                         missions={poolMissions}
-                        onEditMission={(mission) => openFormModal('PoolMission', mission)}
+                        onEditMission={(mission) => openPoolMissionForm(mission)}
                         onDeleteMission={(mission) => requestDeleteItem(mission, 'PoolMission')}
                         onToggleFocusStatus={handlePoolMissionFocusToggle}
                         onToggleCompleteStatus={(mission, newStatus) => handleItemStatusUpdate(mission, newStatus, 'pool-missions')}
                         questColors={questColors}
-                        // title="" // No title needed here as panel has one
                         emptyListMessage="No pool missions for this quest with current filters."
                     />
                 </div>
@@ -305,33 +338,30 @@ function QuestDetailPage({ activeTagFilters }) {
                 <div className="dashboard-panel">
                      <div style={panelHeaderStyle}>
                         <h3 style={{margin:0}}>Scheduled Missions</h3>
-                        <button onClick={() => openFormModal('ScheduledMission')} style={panelAddButtonStyle} title="Add Scheduled Mission to this Quest">+ Add</button>
+                        <button onClick={() => openScheduledMissionForm()} style={panelAddButtonStyle} title="Add Scheduled Mission to this Quest">+ Add</button>
                     </div>
                     <ScheduledMissionList
                         missions={scheduledMissions}
-                        onEditMission={(mission) => openFormModal('ScheduledMission', mission)}
+                        onEditMission={(mission) => openScheduledMissionForm(mission)}
                         onDeleteMission={(mission) => requestDeleteItem(mission, 'ScheduledMission')}
                         onUpdateMissionStatus={(mission, newStatus) => handleItemStatusUpdate(mission, newStatus, 'scheduled-missions')}
                         questColors={questColors}
-                        // title=""
                         emptyListMessage="No scheduled missions for this quest with current filters."
                     />
                 </div>
 
                 <div className="dashboard-panel">
                      <div style={panelHeaderStyle}>
-                        <h3 style={{margin:0}}>Habits</h3>
-                        <button onClick={() => openFormModal('Habit')} style={panelAddButtonStyle} title="Add Habit Template to this Quest">+ Add</button>
+                        <h3 style={{margin:0}}>Habit Templates</h3>
+                        <button onClick={() => openHabitTemplateForm()} style={panelAddButtonStyle} title="Add Habit Template to this Quest">+ Add</button>
                     </div>
-                    <HabitOccurrenceList
-                        occurrences={habitOccurrences} // Assuming HabitOccurrenceList can take occurrences
-                        onUpdateStatus={(occurrenceId, newStatus) => {
-                            const occ = habitOccurrences.find(o => o.id === occurrenceId);
-                            if (occ) handleItemStatusUpdate(occ, newStatus, 'habit-occurrences');
-                        }}
+                    <HabitTemplateList 
+                        templates={habitTemplates}
+                        onEditTemplate={(template) => openHabitTemplateForm(template)}
+                        onDeleteTemplate={(template) => requestDeleteItem(template, 'HabitTemplate')}
                         questColors={questColors}
-                        // title=""
-                        emptyListMessage="No habit occurrences for this quest with current filters."
+                        onGenerateOccurrences={handleGenerateOccurrencesForTemplate} 
+                        // emptyListMessage can be added to HabitTemplateList component if desired
                     />
                 </div>
             </div>

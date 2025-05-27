@@ -6,14 +6,14 @@ import QuestSelector from '../../quests/QuestSelector';
 import '../../../styles/poolmissions.css'; 
 
 const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`;
-const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`; // Para obtener la default quest
+const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
+function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId = null }) { // Added initialQuestId
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [energyValue, setEnergyValue] = useState(0);
     const [pointsValue, setPointsValue] = useState(0);
-    const [questId, setQuestId] = useState(null); // Este será el ID de la quest, o null
+    const [questId, setQuestId] = useState(initialQuestId); // Use initialQuestId
     const [selectedTagIds, setSelectedTagIds] = useState([]);
     const [focusStatus, setFocusStatus] = useState('ACTIVE');
 
@@ -22,9 +22,8 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
     const [isFetchingDefaultQuest, setIsFetchingDefaultQuest] = useState(false);
     const isEditing = !!missionToEdit;
 
-    // Efecto para preseleccionar la Quest por defecto al CREAR una nueva misión
     const fetchAndSetDefaultQuest = useCallback(async () => {
-        if (!isEditing && questId === null) { // Solo para creación y si no se ha establecido ya
+        if (!isEditing && !initialQuestId && questId === null) { 
             setIsFetchingDefaultQuest(true);
             const token = localStorage.getItem('authToken');
             try {
@@ -35,26 +34,23 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
                 const defaultQuest = quests.find(q => q.is_default_quest);
                 if (defaultQuest) {
                     setQuestId(defaultQuest.id);
-                } else if (quests.length > 0) {
-                    // Si no hay una marcada como default, pero hay quests,
-                    // el QuestSelector ya las ordena para que la "General" (o la primera) esté arriba.
-                    // Y el <select> la tomará por defecto si questId sigue siendo null.
-                    // Opcionalmente, podríamos setear la primera: setQuestId(quests[0].id);
-                    // Pero es mejor dejar que el <select> nativo y el backend manejen el `null`.
                 }
             } catch (err) {
-                console.error("Failed to fetch default quest for form:", err);
-                // No establecer error aquí, el selector mostrará su propio error si no carga quests.
+                console.error("Failed to fetch default quest for PoolMissionForm:", err);
             } finally {
                 setIsFetchingDefaultQuest(false);
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEditing]); // No incluir questId aquí para evitar bucle si el usuario deselecciona
+    }, [isEditing, initialQuestId]); // questId removed from deps to avoid loop
 
     useEffect(() => {
-        fetchAndSetDefaultQuest();
-    }, [fetchAndSetDefaultQuest]);
+        if (!isEditing && initialQuestId) {
+            setQuestId(initialQuestId);
+        } else if (!isEditing && !initialQuestId) {
+            fetchAndSetDefaultQuest();
+        }
+    }, [isEditing, initialQuestId, fetchAndSetDefaultQuest]);
 
 
     useEffect(() => {
@@ -63,22 +59,19 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
             setDescription(missionToEdit.description || '');
             setEnergyValue(missionToEdit.energy_value || 0);
             setPointsValue(missionToEdit.points_value || 0);
-            // Aquí es crucial: missionToEdit.quest_id ya tiene el ID de la quest de la misión
-            // o es null si el backend lo permite (aunque nuestra lógica de backend ahora lo evitará).
-            // El QuestSelector usará este valor para preseleccionar la opción correcta.
-            setQuestId(missionToEdit.quest_id || null); 
+            setQuestId(missionToEdit.quest_id || initialQuestId || null); // Prioritize mission's questId, then initial, then null
             setSelectedTagIds(missionToEdit.tags ? missionToEdit.tags.map(tag => tag.id) : []);
             setFocusStatus(missionToEdit.focus_status || 'ACTIVE');
-        } else if (!isEditing) { // Reset para creación (después de que fetchAndSetDefaultQuest pueda haber actuado)
+        } else if (!isEditing) { 
             setTitle('');
             setDescription('');
             setEnergyValue(10); 
             setPointsValue(5);  
-            // questId se establece por fetchAndSetDefaultQuest o permanece null si el usuario deselecciona.
+            // QuestId is handled by the other useEffect or remains initialQuestId
             setSelectedTagIds([]);
             setFocusStatus('ACTIVE');
         }
-    }, [missionToEdit, isEditing, fetchAndSetDefaultQuest]); // fetchAndSetDefaultQuest es estable
+    }, [missionToEdit, isEditing, initialQuestId]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -90,14 +83,13 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
             setIsLoading(false);
             return;
         }
-        // ... (otras validaciones si las tienes)
-
+        
         const missionData = {
             title: title.trim(),
             description: description.trim() || null,
             energy_value: parseInt(energyValue, 10),
             points_value: parseInt(pointsValue, 10),
-            quest_id: questId, // Enviar el questId actual (puede ser null, backend lo maneja)
+            quest_id: questId, 
             tag_ids: selectedTagIds,
             focus_status: focusStatus,
         };
@@ -106,12 +98,13 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
         const config = { headers: { 'Authorization': `Bearer ${token}` } };
 
         try {
+            let response;
             if (isEditing) {
-                await axios.put(`${API_POOL_MISSIONS_URL}/${missionToEdit.id}`, missionData, config);
+                response = await axios.put(`${API_POOL_MISSIONS_URL}/${missionToEdit.id}`, missionData, config);
             } else {
-                await axios.post(API_POOL_MISSIONS_URL, missionData, config);
+                response = await axios.post(API_POOL_MISSIONS_URL, missionData, config);
             }
-            onFormSubmit(); 
+            onFormSubmit(response.data); 
         } catch (err) {
             console.error("Failed to save pool mission:", err.response?.data || err.message);
             const errorData = err.response?.data;
@@ -137,7 +130,6 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
             <h3>{isEditing ? 'Edit Pool Mission' : 'Create New Pool Mission'}</h3>
             {error && <p className="error-message">{error}</p>}
             <form onSubmit={handleSubmit} className="pool-mission-form">
-                {/* ... (campos de title, description, energy, points como antes) ... */}
                 <div className="form-group">
                     <label htmlFor="pm-title">Title:</label>
                     <input type="text" id="pm-title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isLoading || isFetchingDefaultQuest} />
@@ -158,7 +150,7 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
                  <div className="form-group">
                     <label htmlFor="pm-quest">Associate with Quest:</label>
                     <QuestSelector 
-                        selectedQuestId={questId} // `questId` del estado del formulario
+                        selectedQuestId={questId} 
                         onQuestChange={(newQuestId) => setQuestId(newQuestId)}
                         disabled={isLoading || isFetchingDefaultQuest}
                         isFilter={false} 
@@ -167,7 +159,6 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel }) {
                 <TagSelector 
                     selectedTagIds={selectedTagIds}
                     onSelectedTagsChange={setSelectedTagIds}
-                    // disabled={isLoading || isFetchingDefaultQuest} // Si TagSelector también necesita una prop disabled
                 />
                 <div className="form-group">
                     <label htmlFor="pm-focus">Focus Status:</label>

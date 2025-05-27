@@ -1,5 +1,5 @@
 // frontend/src/components/missions/scheduled/ScheduledMissionForm.jsx
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react'; // Removed useCallback
 import axios from 'axios';
 import { UserContext } from '../../../contexts/UserContext';
 import TagSelector from '../../tags/TagSelector';
@@ -10,7 +10,6 @@ const API_SCHEDULED_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/schedul
 const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-// Helper to format date for 'date' input type (YYYY-MM-DD)
 const formatDateForDateInput = (isoStringOrDate) => {
     if (!isoStringOrDate) return '';
     try {
@@ -22,7 +21,6 @@ const formatDateForDateInput = (isoStringOrDate) => {
     } catch (e) { return ''; }
 };
 
-// Helper to format datetime for 'datetime-local' input (YYYY-MM-DDTHH:mm)
 const formatDateTimeForInput = (isoStringOrDate) => {
     if (!isoStringOrDate) return '';
     try {
@@ -33,15 +31,14 @@ const formatDateTimeForInput = (isoStringOrDate) => {
     } catch (e) { return ''; }
 };
 
-// Helper to convert input value (date or datetime-local) back to ISO string
 const formatInputToISO = (inputValue, isAllDay = false) => {
     if (!inputValue) return null;
     try {
-        if (isAllDay) { // Input is YYYY-MM-DD
+        if (isAllDay) {
             const dateParts = inputValue.split('-');
             const dateObj = new Date(Date.UTC(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])));
-            return dateObj.toISOString(); // Will be YYYY-MM-DDT00:00:00.000Z
-        } else { // Input is YYYY-MM-DDTHH:mm
+            return dateObj.toISOString();
+        } else { 
             const localDate = new Date(inputValue);
             return localDate.toISOString();
         }
@@ -49,17 +46,19 @@ const formatInputToISO = (inputValue, isAllDay = false) => {
 };
 
 
-function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel }) {
+function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel, initialQuestId: directInitialQuestId = null }) {
     const { currentUser } = useContext(UserContext);
+    const effectiveInitialQuestId = missionToEdit?.quest_id || slotInfo?.initialQuestId || directInitialQuestId;
+
     const [formData, setFormData] = useState({
         title: '',
         description: '',
         energyValue: 0,
         pointsValue: 0,
-        startDatetime: '', // Will store YYYY-MM-DD or YYYY-MM-DDTHH:mm
-        endDatetime: '',   // Will store YYYY-MM-DDTHH:mm, hidden if allDay
-        isAllDay: false,   // New state for the checkbox
-        questId: null,
+        startDatetime: '', 
+        endDatetime: '',   
+        isAllDay: false,  
+        questId: effectiveInitialQuestId || null,
         selectedTagIds: [],
         status: 'PENDING'
     });
@@ -76,12 +75,12 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
             let initialIsAllDay = false;
             let initialStartDt = '';
             let initialEndDt = '';
+            let currentQuestId = effectiveInitialQuestId || null;
 
             if (isEditing) {
                 initialIsAllDay = missionToEdit.is_all_day || false;
                 if (initialIsAllDay) {
                     initialStartDt = formatDateForDateInput(missionToEdit.start_datetime);
-                    // For all-day, endDatetime is not directly edited by user in this form
                 } else {
                     initialStartDt = formatDateTimeForInput(missionToEdit.start_datetime);
                     initialEndDt = formatDateTimeForInput(missionToEdit.end_datetime);
@@ -94,12 +93,12 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
                     startDatetime: initialStartDt,
                     endDatetime: initialEndDt,
                     isAllDay: initialIsAllDay,
-                    questId: missionToEdit.quest_id || null,
+                    questId: missionToEdit.quest_id || currentQuestId,
                     selectedTagIds: missionToEdit.tags ? missionToEdit.tags.map(tag => tag.id) : [],
                     status: missionToEdit.status || 'PENDING'
                 });
             } else if (isConverting) {
-                initialIsAllDay = slotInfo.allDay || false; // If react-big-calendar slotInfo provides this
+                initialIsAllDay = slotInfo.allDay || false; 
                  if (initialIsAllDay) {
                     initialStartDt = formatDateForDateInput(slotInfo.start);
                 } else {
@@ -114,61 +113,66 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
                     startDatetime: initialStartDt,
                     endDatetime: initialEndDt,
                     isAllDay: initialIsAllDay,
-                    questId: missionToEdit.quest_id || null,
+                    questId: missionToEdit.quest_id || currentQuestId,
                     selectedTagIds: missionToEdit.tags ? missionToEdit.tags.map(tag => tag.id) : [],
                     status: 'PENDING'
                 });
-            } else if (slotInfo) { // Creating new from calendar slot
+            } else if (slotInfo) { 
                 setIsFetchingDefaultQuest(true);
-                initialIsAllDay = slotInfo.allDay || (slotInfo.slots && slotInfo.slots.length === 1); // Guess if it's an all-day slot
+                initialIsAllDay = slotInfo.allDay || (slotInfo.slots && slotInfo.slots.length === 1);
                 if (initialIsAllDay) {
                     initialStartDt = formatDateForDateInput(slotInfo.start);
                 } else {
                     initialStartDt = formatDateTimeForInput(slotInfo.start);
                     initialEndDt = formatDateTimeForInput(slotInfo.end);
                 }
-                const token = localStorage.getItem('authToken');
-                 try {
-                    const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
-                    const quests = response.data || [];
-                    const defaultQuest = quests.find(q => q.is_default_quest);
-                    setFormData({
-                        title: '', description: '', energyValue: 10, pointsValue: 5,
-                        startDatetime: initialStartDt,
-                        endDatetime: initialEndDt,
-                        isAllDay: initialIsAllDay,
-                        questId: defaultQuest?.id || (quests.length > 0 ? quests[0].id : null),
-                        selectedTagIds: [], status: 'PENDING'
-                    });
-                } catch (err) {
-                    setFormData(prev => ({ ...prev, questId: null, startDatetime: initialStartDt, endDatetime: initialEndDt, isAllDay: initialIsAllDay }));
-                } finally { setIsFetchingDefaultQuest(false); }
-            } else { // Creating new from "Add" button
+                
+                if (!currentQuestId) { // Only fetch default if no initialQuestId was provided
+                    const token = localStorage.getItem('authToken');
+                     try {
+                        const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
+                        const quests = response.data || [];
+                        const defaultQuest = quests.find(q => q.is_default_quest);
+                        currentQuestId = defaultQuest?.id || (quests.length > 0 ? quests[0].id : null);
+                    } catch (err) { /* currentQuestId remains null */ }
+                }
+                setFormData({
+                    title: '', description: '', energyValue: 10, pointsValue: 5,
+                    startDatetime: initialStartDt,
+                    endDatetime: initialEndDt,
+                    isAllDay: initialIsAllDay,
+                    questId: currentQuestId,
+                    selectedTagIds: [], status: 'PENDING'
+                });
+                setIsFetchingDefaultQuest(false); 
+            } else { // Creating new from "Add" button (no slotInfo)
                 setIsFetchingDefaultQuest(true);
-                const token = localStorage.getItem('authToken');
-                try {
-                    const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
-                    const quests = response.data || [];
-                    const defaultQuest = quests.find(q => q.is_default_quest);
-                    const now = new Date();
-                    // For "Add New", default to not all-day
-                    initialStartDt = formatDateTimeForInput(now.toISOString());
-                    initialEndDt = formatDateTimeForInput(new Date(now.getTime() + 60 * 60 * 1000).toISOString());
-                    setFormData({
-                        title: '', description: '', energyValue: 10, pointsValue: 5,
-                        startDatetime: initialStartDt,
-                        endDatetime: initialEndDt,
-                        isAllDay: false, // Default to not all-day for manual creation
-                        selectedTagIds: [], status: 'PENDING',
-                        questId: defaultQuest?.id || (quests.length > 0 ? quests[0].id : null)
-                    });
-                } catch (err) {
-                    setFormData(prev => ({ ...prev, questId: null, isAllDay: false }));
-                } finally { setIsFetchingDefaultQuest(false); }
+                const now = new Date();
+                initialStartDt = formatDateTimeForInput(now.toISOString());
+                initialEndDt = formatDateTimeForInput(new Date(now.getTime() + 60 * 60 * 1000).toISOString());
+                
+                if (!currentQuestId) { // Only fetch default if no initialQuestId was provided
+                    const token = localStorage.getItem('authToken');
+                    try {
+                        const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
+                        const quests = response.data || [];
+                        const defaultQuest = quests.find(q => q.is_default_quest);
+                        currentQuestId = defaultQuest?.id || (quests.length > 0 ? quests[0].id : null);
+                    } catch (err) { /* currentQuestId remains null */ }
+                }
+                setFormData({
+                    title: '', description: '', energyValue: 10, pointsValue: 5,
+                    startDatetime: initialStartDt,
+                    endDatetime: initialEndDt,
+                    isAllDay: false, 
+                    selectedTagIds: [], status: 'PENDING',
+                    questId: currentQuestId
+                });
+                setIsFetchingDefaultQuest(false);
             }
         };
         loadInitialData();
-    }, [missionToEdit, slotInfo, isEditing, isConverting]);
+    }, [missionToEdit, slotInfo, isEditing, isConverting, effectiveInitialQuestId]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -176,9 +180,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
             setFormData(prev => ({
                 ...prev,
                 isAllDay: checked,
-                // When toggling isAllDay, clear/reformat startDatetime and clear endDatetime if needed
                 startDatetime: checked ? formatDateForDateInput(prev.startDatetime || new Date()) : formatDateTimeForInput(prev.startDatetime || new Date()),
-                endDatetime: checked ? '' : formatDateTimeForInput(new Date(new Date(prev.startDatetime || new Date()).getTime() + 60*60*1000)) // Provide a default end if switching to timed
+                endDatetime: checked ? '' : formatDateTimeForInput(new Date(new Date(prev.startDatetime || new Date()).getTime() + 60*60*1000)) 
             }));
         } else {
             setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
@@ -197,7 +200,7 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
         if (!formData.title.trim()) {
             setError('Mission title is required.'); setIsLoading(false); return;
         }
-        if (!formData.startDatetime) { // startDatetime is always required (either date or datetime-local)
+        if (!formData.startDatetime) { 
             setError('Start date/time is required.'); setIsLoading(false); return;
         }
         
@@ -206,12 +209,9 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
 
         if (formData.isAllDay) {
             if (!finalStartDatetimeISO) {setError('Invalid start date for all-day event.'); setIsLoading(false); return;}
-            // Backend will set end to end of day for is_all_day: true
-            // We can send the same as start, or let backend derive it based on is_all_day flag
             const startDateObj = new Date(finalStartDatetimeISO);
             finalEndDatetimeISO = new Date(Date.UTC(startDateObj.getUTCFullYear(), startDateObj.getUTCMonth(), startDateObj.getUTCDate(), 23, 59, 59, 999)).toISOString();
             finalStartDatetimeISO = new Date(Date.UTC(startDateObj.getUTCFullYear(), startDateObj.getUTCMonth(), startDateObj.getUTCDate(), 0, 0, 0, 0)).toISOString();
-
         } else {
             if (!formData.endDatetime) {
                 setError('End date/time is required for timed events.'); setIsLoading(false); return;
@@ -231,7 +231,7 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
             energy_value: parseInt(formData.energyValue, 10),
             points_value: parseInt(formData.pointsValue, 10),
             start_datetime: finalStartDatetimeISO,
-            end_datetime: finalEndDatetimeISO, // Backend handles BoD/EoD if is_all_day
+            end_datetime: finalEndDatetimeISO, 
             is_all_day: formData.isAllDay,
             quest_id: formData.questId,
             tag_ids: formData.selectedTagIds,
@@ -242,16 +242,17 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
         const config = { headers: { 'Authorization': `Bearer ${token}` } };
 
         try {
+            let response;
             if (isEditing) {
-                await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${missionToEdit.id}`, missionDataPayload, config);
-                onFormSubmit();
+                response = await axios.put(`${API_SCHEDULED_MISSIONS_URL}/${missionToEdit.id}`, missionDataPayload, config);
+                onFormSubmit(response.data);
             } else { 
-                await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, config);
+                response = await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, config);
                 if (isConverting && slotInfo.convertingPoolMissionId) {
                     await axios.delete(`${API_POOL_MISSIONS_URL}/${slotInfo.convertingPoolMissionId}`, config);
-                    onFormSubmit(true); 
+                    onFormSubmit(response.data, true); // Pass true for conversion
                 } else {
-                    onFormSubmit();
+                    onFormSubmit(response.data);
                 }
             }
         } catch (err) {
@@ -277,7 +278,7 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel 
                     <label htmlFor="sm-title">Title:</label>
                     <input type="text" id="sm-title" name="title" value={formData.title} onChange={handleChange} required disabled={formDisabled} />
                 </div>
-                 <div className="form-group"> {/* Checkbox for All-Day */}
+                 <div className="form-group"> 
                     <label htmlFor="sm-is-all-day" className="checkbox-label" style={{ display: 'flex', alignItems: 'center', fontWeight: 'normal' }}>
                         <input
                             type="checkbox"
