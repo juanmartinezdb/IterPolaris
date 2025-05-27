@@ -151,6 +151,7 @@ class ScheduledMission(db.Model):
     def __repr__(self):
         return f'<ScheduledMission {self.title}>'
 
+
 class HabitTemplate(db.Model):
     __tablename__ = 'habit_templates'
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -160,7 +161,7 @@ class HabitTemplate(db.Model):
     description = db.Column(TEXT, nullable=True)
     default_energy_value = db.Column(INTEGER, nullable=False)
     default_points_value = db.Column(INTEGER, nullable=False)
-    rec_by_day = db.Column(ARRAY(TEXT), nullable=True) # e.g., ['MO', 'WE', 'FR'] or ['DAILY'], ['WEEKLY']
+    rec_by_day = db.Column(ARRAY(TEXT), nullable=True) 
     rec_start_time = db.Column(TIME(timezone=True), nullable=True)
     rec_duration_minutes = db.Column(INTEGER, nullable=True)
     rec_pattern_start_date = db.Column(DATE, nullable=False)
@@ -168,37 +169,29 @@ class HabitTemplate(db.Model):
     is_active = db.Column(BOOLEAN, default=True, nullable=False)
     created_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
     tags = db.relationship('Tag', secondary=habit_template_tags_association, backref=db.backref('habit_templates', lazy='dynamic'))
     occurrences = db.relationship('HabitOccurrence', backref='template', lazy=True, cascade="all, delete-orphan")
-
-    def __repr__(self):
-        return f'<HabitTemplate {self.title}>'
+    def __repr__(self): return f'<HabitTemplate {self.title}>'
 
 class HabitOccurrence(db.Model):
     __tablename__ = 'habit_occurrences'
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     habit_template_id = db.Column(UUID(as_uuid=True), db.ForeignKey('habit_templates.id', ondelete='CASCADE'), nullable=False)
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False) # Denormalized for easier querying
-    quest_id = db.Column(UUID(as_uuid=True), db.ForeignKey('quests.id', ondelete='SET NULL'), nullable=True) # Denormalized
-
-    title = db.Column(TEXT, nullable=False) # Denormalized
-    description = db.Column(TEXT, nullable=True) # Denormalized
-    energy_value = db.Column(INTEGER, nullable=False) # Denormalized
-    points_value = db.Column(INTEGER, nullable=False) # Denormalized
-
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False) 
+    quest_id = db.Column(UUID(as_uuid=True), db.ForeignKey('quests.id', ondelete='SET NULL'), nullable=True)
+    title = db.Column(TEXT, nullable=False)
+    description = db.Column(TEXT, nullable=True)
+    energy_value = db.Column(INTEGER, nullable=False)
+    points_value = db.Column(INTEGER, nullable=False)
     scheduled_start_datetime = db.Column(TIMESTAMP(timezone=True), nullable=False)
     scheduled_end_datetime = db.Column(TIMESTAMP(timezone=True), nullable=False)
-    status = db.Column(TEXT, nullable=False, default='PENDING') # PENDING, COMPLETED, SKIPPED
+    is_all_day = db.Column(BOOLEAN, default=False, nullable=False) # <-- NUEVO CAMPO
+    status = db.Column(TEXT, nullable=False, default='PENDING')
     actual_completion_datetime = db.Column(TIMESTAMP(timezone=True), nullable=True)
     created_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = db.Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        CheckConstraint(status.in_(['PENDING', 'COMPLETED', 'SKIPPED']), name='ck_habit_occurrence_status'),
-    )
-    def __repr__(self):
-        return f'<HabitOccurrence {self.title} on {self.scheduled_start_datetime}>'
+    __table_args__ = ( CheckConstraint(status.in_(['PENDING', 'COMPLETED', 'SKIPPED']), name='ck_habit_occurrence_status'), )
+    def __repr__(self): return f'<HabitOccurrence {self.title} on {self.scheduled_start_datetime}>'
 
 
 class EnergyLog(db.Model):
