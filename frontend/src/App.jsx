@@ -15,7 +15,7 @@ import RegistrationForm from './components/auth/RegistrationForm';
 import LoginForm from './components/auth/LoginForm';
 import DevPasswordResetForm from './components/auth/DevPasswordResetForm';
 import ProtectedRoute from './components/routing/ProtectedRoute';
-import QuestPage from './pages/QuestPage';
+import QuestPage from './pages/QuestPage'; // This is the OLD Quests CRUD page
 import TagsPage from './pages/TagsPage';
 import DashboardPage from './pages/DashboardPage';
 import ScheduledMissionsPage from './pages/ScheduledMissionsPage';
@@ -24,6 +24,12 @@ import CalendarPage from './pages/CalendarPage';
 import SettingsPage from './pages/SettingsPage';
 import ProfilePage from './pages/ProfilePage';
 import PoolMissionsPage from './pages/PoolMissionsPage';
+
+// NEW Pages for Quest Overview and Detail
+import QuestsOverviewPage from './pages/QuestsOverviewPage';
+import QuestDetailPage from './pages/QuestDetailPage';
+import LogbookPage from './pages/LogbookPage';
+
 
 import './App.css';
 import './index.css';
@@ -70,9 +76,9 @@ function App() {
     };
 
     useEffect(() => {
-        if (currentUser?.settings?.sidebarTagFilters) {
-            // setActiveTagFilters(currentUser.settings.sidebarTagFilters); 
-        }
+        // This effect was for loading sidebarTagFilters from currentUser.settings
+        // We can keep it or manage activeTagFilters purely in App state if preferred
+        // For now, let's assume activeTagFilters is primarily driven by user interaction via TagFilter component
     }, [currentUser]);
 
     const handleAuthSuccess = async () => {
@@ -92,12 +98,12 @@ function App() {
         } finally {
             localStorage.removeItem('authToken');
             localStorage.removeItem('currentUser');
-            setActiveTagFilters([]);
-            await fetchUserProfile();
+            setActiveTagFilters([]); // Reset tag filters on logout
+            await fetchUserProfile(); // This will set currentUser to null
             navigate('/login');
         }
     };
-
+    
     useEffect(() => {
         const handleStorageChange = (event) => {
             if (event.key === 'authToken' || event.key === 'currentUser') {
@@ -107,12 +113,14 @@ function App() {
         window.addEventListener('storage', handleStorageChange);
         const token = localStorage.getItem('authToken');
         if (token && !currentUser && !isLoadingProfile) {
-            fetchUserProfile();
+             fetchUserProfile();
         }
         return () => {
             window.removeEventListener('storage', handleStorageChange);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.pathname, fetchUserProfile, currentUser, isLoadingProfile]);
+
 
     if (isLoadingProfile && localStorage.getItem('authToken')) {
         return <div className="app-container-loading">Loading Your Realm...</div>;
@@ -141,24 +149,41 @@ function App() {
                                 path="/dashboard"
                                 element={<DashboardPage activeTagFilters={activeTagFilters} />}
                             />
-                            <Route
-                                path="/scheduled-missions"
-                                element={<ScheduledMissionsPage activeTagFilters={activeTagFilters} />} // Pasar filtros
+                             <Route
+                                path="/calendar"
+                                element={<CalendarPage activeTagFilters={activeTagFilters} />}
                             />
+                            {/* New Quests Overview Page */}
+                            <Route 
+                                path="/quests-overview" 
+                                element={<QuestsOverviewPage activeTagFilters={activeTagFilters} />} 
+                            />
+                            {/* New Quest Detail Page */}
+                            <Route 
+                                path="/quests/:questId" 
+                                element={<QuestDetailPage activeTagFilters={activeTagFilters} />} 
+                            />
+                            <Route path="/logbook" element={<LogbookPage />} /> {/* General Logbook */}
+                            <Route path="/logbook/quest/:questId" element={<LogbookPage />} /> {/* Quest-specific Logbook */}
+              
+                            
+                            {/* Pages under "Lists" dropdown */}
                             <Route
                                 path="/pool-missions"
                                 element={<PoolMissionsPage activeTagFilters={activeTagFilters} />}
                             />
                             <Route
-                                path="/calendar"
-                                element={<CalendarPage activeTagFilters={activeTagFilters} />} // Pasar filtros
+                                path="/scheduled-missions"
+                                element={<ScheduledMissionsPage activeTagFilters={activeTagFilters} />}
                             />
                             <Route
                                 path="/habit-templates"
-                                element={<HabitTemplatesPage activeTagFilters={activeTagFilters} />} // Pasar filtros
+                                element={<HabitTemplatesPage activeTagFilters={activeTagFilters} />}
                             />
-                            <Route path="/quests" element={<QuestPage />} /> {/* Quests y Tags no se filtran por tags */}
-                            <Route path="/tags" element={<TagsPage />} />
+                            <Route path="/quests" element={<QuestPage />} /> {/* This is for Manage Quests (CRUD) */}
+                            <Route path="/tags" element={<TagsPage />} />   {/* This is for Manage Tags (CRUD) */}
+                            
+                            {/* Settings and Profile */}
                             <Route path="/settings" element={<SettingsPage />} />
                             <Route path="/profile" element={<ProfilePage />} />
                         </Route>

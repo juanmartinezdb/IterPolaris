@@ -1,52 +1,43 @@
 // frontend/src/components/layout/LeftSidebar.jsx
-import React, { useState, useContext } from 'react'; 
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useState, useContext, useRef, useEffect } from 'react';
+import { NavLink, useNavigate, Link } from 'react-router-dom';
 import UserStatsDisplay from '../gamification/UserStatsDisplay';
 import TagFilter from '../tags/TagFilter';
-import { UserContext } from '../../contexts/UserContext'; // Necesario para currentUser.settings
+import { UserContext } from '../../contexts/UserContext';
 
 import QuestForm from '../quests/QuestForm';
 import TagForm from '../tags/TagForm';
 import PoolMissionForm from '../missions/pool/PoolMissionForm';
 import ScheduledMissionForm from '../missions/scheduled/ScheduledMissionForm';
 import HabitTemplateForm from '../habits/HabitTemplateForm';
-import Modal from '../common/Modal'; 
-
-// Importar contextos o funciones de refresco si los creamos más adelante
-// import { QuestContext } from '../../contexts/QuestContext';
-// import { TagContext } from '../../contexts/TagContext';
-
+import Modal from '../common/Modal';
+import '../../styles/layout.css'; // Ensure this is imported
 
 function LeftSidebar({ activeTagFilters, onTagFilterChange }) {
-    const { currentUser, fetchUserProfile } = useContext(UserContext); // Obtener fetchUserProfile para refrescar después de crear Tag
+    const { currentUser, fetchUserProfile } = useContext(UserContext);
     const [isAddNewDropdownOpen, setIsAddNewDropdownOpen] = useState(false);
+    const [isListsDropdownOpen, setIsListsDropdownOpen] = useState(false); // New state for Lists dropdown
     const [showModal, setShowModal] = useState(false);
     const [modalContent, setModalContent] = useState(null);
     const [modalTitle, setModalTitle] = useState('');
     const navigate = useNavigate();
+    const addNewDropdownRef = useRef(null);
+    const listsDropdownRef = useRef(null);
 
-    // No necesitamos tagListVersion si TagFilter se actualiza basado en currentUser.settings
-    // const { refreshQuests } = useContext(QuestContext) || { refreshQuests: () => console.warn("QuestContext not provided") };
 
-    const toggleAddNewDropdown = () => setIsAddNewDropdownOpen(!isAddNewDropdownOpen);
-    
+    const toggleAddNewDropdown = () => setIsAddNewDropdownOpen(prev => !prev);
+    const toggleListsDropdown = () => setIsListsDropdownOpen(prev => !prev);
+
     const handleSuccessfulSubmit = async (entityType) => {
         setShowModal(false);
+        setModalContent(null); // Clear modal content
         console.log(`${entityType} submitted from sidebar modal`);
         
         if (entityType === 'Tag' || entityType === 'Quest') {
-            // Forzar un refresh del perfil del usuario para que los nuevos tags/quests
-            // estén disponibles globalmente (ej. para QuestSelector, TagFilter si no se le pasan los tags directamente).
-            // Para TagFilter, si obtiene los tags de currentUser.settings.all_tags, esto lo actualizaría.
-            // O, si TagFilter carga sus propios tags, necesita su propio trigger/refetch.
-            // Si fetchUserProfile actualiza currentUser.tags y QuestContext usa currentUser.
             if (fetchUserProfile) await fetchUserProfile(); 
         }
-        // Aquí podríamos añadir lógica de refresco más granular si tenemos contextos o funciones específicas.
-        // Por ejemplo, si las listas de misiones en el Dashboard necesitan refrescarse:
-        // if (['PoolMission', 'ScheduledMission', 'HabitTemplate'].includes(entityType) && refreshDashboardData) {
-        // refreshDashboardData();
-        // }
+        // Potentially add specific list refreshes if needed, e.g., navigating to the list page.
+        // For now, relying on global context updates or page-level fetches upon navigation.
     };
 
     const openModalWithForm = (formType) => {
@@ -104,25 +95,44 @@ function LeftSidebar({ activeTagFilters, onTagFilterChange }) {
         setShowModal(true);
     };
 
-const navLinks = [
+    // Close dropdowns if clicked outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (addNewDropdownRef.current && !addNewDropdownRef.current.contains(event.target)) {
+                setIsAddNewDropdownOpen(false);
+            }
+            if (listsDropdownRef.current && !listsDropdownRef.current.contains(event.target)) {
+                setIsListsDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const mainNavLinks = [
         { to: "/dashboard", label: "Dashboard", icon: "🗺️" },
         { to: "/calendar", label: "Calendar", icon: "📅" },
-        { to: "/pool-missions", label: "Mission Pool", icon: "🧺" }, // New Link
+        { to: "/quests-overview", label: "Quests", icon: "🧭" }, // New "Quests" page link
+    ];
+
+    const listsNavItems = [
+        { to: "/pool-missions", label: "Mission Pool", icon: "🧺" },
         { to: "/scheduled-missions", label: "Scheduled", icon: "🗓️" },
         { to: "/habit-templates", label: "Habits", icon: "🔄" },
-        { to: "/quests", label: "My Quests", icon: "🏆" },
-        { to: "/tags", label: "My Tags", icon: "🏷️" },
+        { type: 'divider', key: 'lists-divider-1'},
+        { to: "/quests", label: "Manage Quests", icon: "🏆" }, // This is the old QuestPage for CRUD
+        { to: "/tags", label: "Manage Tags", icon: "🏷️" },
     ];
      
     const handleOpenTagSettings = () => {
-        navigate('/settings'); // Navegar a la página de Settings
+        navigate('/settings'); 
     };
 
     return (
         <aside className="left-sidebar-component">
             <UserStatsDisplay />
             
-            <div className="add-new-button-container">
+            <div className="add-new-button-container" ref={addNewDropdownRef}>
                 <button 
                     onClick={toggleAddNewDropdown} 
                     className="add-new-button-sidebar" 
@@ -144,29 +154,55 @@ const navLinks = [
             </div>
             
             <nav className="sidebar-navigation-component">
-                {navLinks.map(link => (
+                {mainNavLinks.map(link => (
                     <NavLink 
                         key={link.to}
                         to={link.to} 
                         className={({ isActive }) => isActive ? "sidebar-nav-link-component active" : "sidebar-nav-link-component"}
-                        onClick={() => setIsAddNewDropdownOpen(false)} 
+                        onClick={() => { setIsAddNewDropdownOpen(false); setIsListsDropdownOpen(false); }} 
                     >
                         <span role="img" aria-label={`${link.label} Icon`}>{link.icon}</span> {link.label}
                     </NavLink>
                 ))}
+                {/* Lists Dropdown */}
+                <div className="sidebar-dropdown-container" ref={listsDropdownRef}>
+                    <button 
+                        onClick={toggleListsDropdown} 
+                        className="sidebar-nav-link-component dropdown-toggle" // Style similar to NavLink
+                        aria-expanded={isListsDropdownOpen}
+                        aria-controls="lists-menu"
+                    >
+                        <span role="img" aria-label="Lists Icon">📚</span> Lists
+                        <span className={`dropdown-arrow ${isListsDropdownOpen ? 'open' : ''}`}>▼</span>
+                    </button>
+                    {isListsDropdownOpen && (
+                        <ul id="lists-menu" className={`sidebar-dropdown-menu ${isListsDropdownOpen ? 'open' : ''}`}>
+                            {listsNavItems.map(item => (
+                                item.type === 'divider' ? 
+                                <hr key={item.key} className="dropdown-divider" /> :
+                                <li key={item.to}>
+                                    <NavLink 
+                                        to={item.to}
+                                        className={({ isActive }) => isActive ? "sidebar-dropdown-item active" : "sidebar-dropdown-item"}
+                                        onClick={() => setIsListsDropdownOpen(false)}
+                                    >
+                                       <span role="img" aria-label={`${item.label} Icon`}>{item.icon}</span> {item.label}
+                                    </NavLink>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             </nav>
 
             <TagFilter
-                // availableTags se carga dentro de TagFilter si no se provee.
-                // Opcionalmente, podríamos pasar todos los tags del usuario desde currentUser si /me los devolviera.
-                // availableTags={currentUser?.allUserTags || null} 
-                pinnedTagIdsToShow={currentUser?.settings?.sidebar_pinned_tag_ids || []} // Pasar los IDs pineados
+                pinnedTagIdsToShow={currentUser?.settings?.sidebar_pinned_tag_ids || []}
                 selectedTags={activeTagFilters}      
                 onFilterChange={onTagFilterChange}  
                 onConfigOpen={handleOpenTagSettings} 
             />
              {showModal && (
-                <Modal title={modalTitle} onClose={() => setShowModal(false)}>
+                <Modal title={modalTitle} onClose={() => {setShowModal(false); setModalContent(null);}}>
                     {modalContent}
                 </Modal>
             )}

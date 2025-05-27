@@ -386,3 +386,73 @@
     opacity: 0.3;
     border: none;
 }
+
+.sidebar-dropdown-container {
+    position: relative;
+}
+
+.sidebar-nav-link-component.dropdown-toggle {
+    display: flex;
+    justify-content: space-between; /* To push arrow to the right */
+    align-items: center;
+    width: 100%; /* Make it full width like other NavLinks */
+    background: none; /* Remove button default background */
+    border: none; /* Remove button default border */
+    padding: 0.7rem 0.9rem; /* Match NavLink padding */
+    text-align: left; /* Align text to left */
+    cursor: pointer;
+}
+/* Ensure dropdown-toggle also gets hover/active styles if desired, similar to .sidebar-nav-link-component */
+.sidebar-nav-link-component.dropdown-toggle:hover {
+  background-color: var(--color-bg-elevated, #21395A);
+  color: var(--color-accent-gold, #B08D57);
+}
+
+.dropdown-arrow {
+    font-size: 0.7em;
+    margin-left: auto; /* Pushes arrow to the far right */
+    transition: transform 0.2s ease;
+}
+.dropdown-arrow.open {
+    transform: rotate(180deg);
+}
+
+.sidebar-dropdown-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0.25rem 0 0 0; /* Small margin top */
+    background-color: var(--color-bg-deep-blue); /* Slightly different background for dropdown */
+    border-radius: 0 0 var(--border-radius-input) var(--border-radius-input); /* Rounded bottom corners */
+    /* box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); */ /* Optional inner shadow */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+.sidebar-dropdown-menu.open {
+    /* A bit arbitrary, adjust if too many items. Or use JS to set height. */
+    max-height: 500px; 
+    border-top: 1px solid var(--color-accent-gold-hover);
+}
+
+.sidebar-dropdown-item {
+    display: flex; /* For icon alignment */
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem 0.6rem 1.5rem; /* Indent dropdown items */
+    color: var(--color-text-on-dark-muted, #8892b0);
+    text-decoration: none;
+    font-size: 0.9em; /* Slightly smaller than main links */
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.sidebar-dropdown-item:hover {
+    background-color: var(--color-bg-elevated, #21395A);
+    color: var(--color-accent-gold, #B08D57);
+}
+.sidebar-dropdown-item.active {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    font-weight: bold;
+}
+.sidebar-dropdown-item span[role="img"] {
+    font-size: 1.1em; 
+}

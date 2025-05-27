@@ -179,3 +179,40 @@
     margin-right: 4px;
     color: #FF9800; /* Naranja para el fuego */
 }
+
+.stellar-current-indicator-wrapper {
+    width: 100%;
+    height: 24px; /* Corresponds to h-6 in Tailwind (6 * 4px = 24px) */
+    position: relative; /* If canvas inside is absolute */
+    background-color: var(--color-bg-deep-blue); /* Fallback or base background */
+}
+
+.energy-bar-canvas-wrapper {
+    width: 100%;
+    height: 24px; /* This should match the h-6 from Tailwind, or your desired height */
+    position: relative; /* For absolute positioning of canvas or overlays */
+    background-color: var(--color-bg-deep-blue, #0A192F); /* Base background for the track area */
+    border-radius: 6px; /* Rounded corners for the track */
+    overflow: hidden; /* Clip contents like glows if they exceed bounds */
+    border: 1px solid var(--color-text-on-dark-muted, #304057); /* Subtle border for definition */
+}
+
+.energy-bar-canvas-wrapper canvas {
+    display: block; /* Remove extra space under canvas */
+    width: 100%;
+    height: 100%;
+}
+
+.energy-balance-bar-status-text { /* For loading/error messages inside the bar area */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    color: var(--color-text-on-dark-muted);
+    background-color: rgba(10, 25, 47, 0.7); /* Semi-transparent overlay */
+}

@@ -1,15 +1,15 @@
 // frontend/src/components/layout/TopBar.jsx
 import React, { useState, useContext, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // useNavigate ya está
+import { Link, useNavigate } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
-import EnergyBalanceBar from '../gamification/EnergyBalanceBar';
-// import '../../styles/layout.css'; // Ya importado en App.jsx o globalmente
+import EnergyBalanceBar from '../gamification/EnergyBalanceBar'; // Old bar
+import '../../styles/layout.css'; 
 
 function TopBar({ isAuthenticated, handleLogout }) {
-    const { currentUser } = useContext(UserContext);
+    const { currentUser, energyBalance, isLoadingEnergy } = useContext(UserContext); // Get energyBalance and isLoadingEnergy
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
-    const navigate = useNavigate(); // Usar hook
+    const navigate = useNavigate();
 
     const toggleDropdown = () => setDropdownOpen(!dropdownOpen);
 
@@ -20,12 +20,12 @@ function TopBar({ isAuthenticated, handleLogout }) {
     
     const handleProfileClick = () => {
         setDropdownOpen(false);
-        navigate('/profile'); // <--- CAMBIO AQUÍ
+        navigate('/profile');
     };
 
     const handleSettingsClick = () => {
         setDropdownOpen(false);
-        navigate('/settings'); // <--- CAMBIO AQUÍ (ya lo tenías, pero confirmo)
+        navigate('/settings');
     };
 
     useEffect(() => {
@@ -63,7 +63,7 @@ function TopBar({ isAuthenticated, handleLogout }) {
                                 )}
                             </button>
                             {dropdownOpen && (
-                                <ul className={`dropdown-menu ${dropdownOpen ? 'open' : ''}`}> {/* Asegurar clase 'open' */}
+                                <ul className={`dropdown-menu ${dropdownOpen ? 'open' : ''}`}>
                                     <li className="dropdown-user-info">
                                         Signed in as <br /><strong>{currentUser?.name || 'User'}</strong>
                                     </li>
@@ -78,7 +78,7 @@ function TopBar({ isAuthenticated, handleLogout }) {
                     )}
                 </nav>
             </div>
-            {isAuthenticated && <EnergyBalanceBar />}
+           {isAuthenticated && <EnergyBalanceBar />}
         </div>
     );
 }
