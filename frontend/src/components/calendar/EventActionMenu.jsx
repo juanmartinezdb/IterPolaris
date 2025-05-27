@@ -1,6 +1,6 @@
 // frontend/src/components/calendar/EventActionMenu.jsx
 import React, { useEffect, useRef } from 'react';
-import '../../styles/calendar.css';
+import '../../styles/calendar.css'; // Ensure styles are loaded
 
 function EventActionMenu({ x, y, event, onClose, onAction }) {
     const menuRef = useRef(null);
@@ -22,10 +22,10 @@ function EventActionMenu({ x, y, event, onClose, onAction }) {
     if (!event || !originalEventData) return null;
 
     const canEditOrDeleteScheduled = eventType === 'SCHEDULED_MISSION' && missionStatus === 'PENDING';
-    // "Move to Pool" should be available for any scheduled mission, regardless of status,
-    // as it's a conversion, not just an edit of the scheduled instance.
     const canMoveToPool = eventType === 'SCHEDULED_MISSION'; 
-    const canExtendHabit = eventType === 'HABIT_OCCURRENCE';
+    const canExtendHabit = eventType === 'HABIT_OCCURRENCE' && originalEventData.habit_template_id;
+    const canDeleteHabitTemplate = eventType === 'HABIT_OCCURRENCE' && originalEventData.habit_template_id;
+
 
     return (
         <div
@@ -56,7 +56,7 @@ function EventActionMenu({ x, y, event, onClose, onAction }) {
                             Edit Mission
                         </li>
                         <li onClick={() => { if (canMoveToPool) onAction('move_to_pool', event);}}
-                            className={!canMoveToPool ? 'disabled' : ''} // Should always be enabled for SM
+                            className={!canMoveToPool ? 'disabled' : ''}
                         >
                             Move to Pool
                         </li>
@@ -77,6 +77,10 @@ function EventActionMenu({ x, y, event, onClose, onAction }) {
                         <li onClick={() => { if (canExtendHabit) onAction('extend_habit', event);}}
                             className={!canExtendHabit ? 'disabled' : ''}>
                             Extend Habit (30 days)
+                        </li>
+                        <li onClick={() => {if (canDeleteHabitTemplate) onAction('delete_habit_template', event);}}
+                            className={!canDeleteHabitTemplate ? 'disabled delete' : 'delete'}>
+                            Delete Habit Template
                         </li>
                     </>
                 )}

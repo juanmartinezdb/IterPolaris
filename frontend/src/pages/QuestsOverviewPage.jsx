@@ -77,11 +77,6 @@ function QuestsOverviewPage({ activeTagFilters }) { // activeTagFilters might be
 
     return (
         <div className="page-container quests-page-container">
-            <h2>Your Quests</h2>
-            <p style={{ textAlign: 'center', marginBottom: '1.5rem', color: 'var(--color-text-on-dark-muted)' }}>
-                Select a Quest to view its missions, habits, and progress.
-            </p>
-            
             {quests.length === 0 ? (
                 <p style={{ textAlign: 'center', marginTop: '2rem' }}>
                     You haven't created any Quests yet. 

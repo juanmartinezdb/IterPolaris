@@ -1,18 +1,396 @@
-/* frontend/src/styles/dashboard.css */
-.dashboard-page h2 {
-    margin-bottom: 0.5rem; 
-}
-.dashboard-page > p { 
-    font-size: 1.1em;
-    color: var(--color-text-on-dark-muted);
+/* frontend/src/styles/calendar.css */
+
+/* Overall Calendar Page Layout */
+.calendar-page-container {
+    display: flex;
+    flex-direction: row; 
+    gap: 1rem; /* Space between calendar and pool */
+    padding: 1rem; /* Overall padding for the page */
+    box-sizing: border-box;
+    /* Calculate height to fill viewport below header and energy bar */
+    height: calc(100vh - 60px - 40px - 2rem); /* Approx: viewport - topbar - energybar - page_padding */
 }
 
-.dashboard-panels-flow-container {
+.calendar-main-area {
+    flex-grow: 1;
     display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem; 
+    flex-direction: column;
+    min-width: 0; /* Prevents flexbox overflow issues */
+    height: 100%; /* Take full height of parent container */
+    background-color: var(--color-bg-content-area, #172A45); /* Themed background */
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    border-radius: var(--border-radius-standard, 8px);
+    padding: 1rem; /* Inner padding for the calendar component */
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+
+/* Calendar Component Styling */
+.rbc-calendar {
+    background-color: transparent; /* Inherit from calendar-main-area */
+    color: var(--color-text-on-dark, #EAEAEA);
+    border: none; /* Remove default border, parent has one */
+    border-radius: 0; /* Parent has radius */
+    padding: 0; /* Parent has padding */
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+    height: 100% !important; /* Crucial for flex-grow to work */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Toolbar enhancements */
+.rbc-toolbar {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover, #5b4b3a); /* Subtle separator */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.rbc-toolbar button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    background-color: var(--color-bg-elevated, #21395A);
+    color: var(--color-accent-gold, #B08D57); /* Improved contrast for non-active */
+    border: 1px solid var(--color-accent-gold, #B08D57);
+    padding: 0.5rem 1rem; /* More substantial buttons */
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    transition: var(--transition-swift, all 0.3s ease-in-out);
+    margin: 0 0.25rem;
+    text-transform: uppercase; /* Thematic touch */
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
+}
+
+.rbc-toolbar button:hover,
+.rbc-toolbar button:focus {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    outline: none;
+    box-shadow: 0 0 5px var(--color-accent-gold-hover);
+}
+
+.rbc-toolbar button.rbc-active,
+.rbc-toolbar button.rbc-active:hover,
+.rbc-toolbar button.rbc-active:focus {
+    background-color: var(--color-accent-gold-hover, #c9a36a); /* More prominent active state */
+    color: var(--color-text-on-accent, #0A192F);
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.25);
+}
+
+.rbc-toolbar .rbc-toolbar-label {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    font-size: 1.6em; /* Larger label */
+    font-weight: bold;
+    flex-grow: 1;
+    text-align: center;
+}
+
+/* Grid and Header Styles */
+.rbc-header {
+    padding: 0.6rem 0.3rem; /* Adjusted padding */
+    text-align: center;
+    font-weight: bold;
+    border-bottom: 1px solid var(--color-bg-deep-blue, #0A192F); /* Darker, less contrast */
+    background-color: var(--color-bg-elevated, #21395A); /* Thematic header bg */
+    color: var(--color-text-on-dark-muted, #8892b0);
+    flex-shrink: 0;
+    font-size: 0.9em;
+}
+.rbc-header + .rbc-header { /* Separator between headers */
+    border-left: 1px solid var(--color-bg-deep-blue, #0A192F);
+}
+
+.rbc-month-view, .rbc-time-grid-container { /* Ensure these take available height */
+    flex-grow: 1;
+    overflow-y: auto;
+    min-height: 0; /* Important for flex children */
+}
+
+/* Day slot and time slot lines - make them less prominent */
+.rbc-month-row { /* Ensure month rows can expand */
+    flex-grow: 1;
+    min-height: 100px; /* Minimum height for a week row */
+}
+.rbc-row-content { /* Ensure content within month row can expand */
+    min-height: 100%;
+}
+
+.rbc-day-bg {
+    border-left: 1px solid var(--color-bg-deep-blue, #0A192F); /* Darker, less contrast */
+}
+.rbc-day-bg:first-child {
+    border-left: none;
+}
+
+.rbc-time-slot {
+    border-top: 1px dotted var(--color-bg-elevated, #21395A); /* Subtle dotted lines */
+}
+.rbc-time-view .rbc-day-slot { /* For vertical lines in week/day views */
+    border-left: 1px dotted var(--color-bg-elevated, #21395A);
+}
+.rbc-timeslot-group { /* Ensure the group takes full height */
+    min-height: 50px; /* Example, adjust as needed */
+}
+
+
+.rbc-time-gutter, .rbc-header-gutter {
+    background-color: var(--color-bg-deep-blue, #0A192F);
+    border-right: 1px solid var(--color-bg-deep-blue, #0A192F);
+    color: var(--color-text-on-dark-muted);
+    flex-shrink: 0;
+}
+.rbc-time-gutter .rbc-timeslot-group {
+    border-bottom: 1px solid var(--color-bg-deep-blue, #0A192F); /* Match other subtle lines */
+}
+.rbc-label {
+    padding: 0 5px;
+    font-size: 0.8em;
+}
+
+/* Current Time Indicator */
+.rbc-current-time-indicator {
+    background-color: var(--color-accent-secondary, #50C878); /* More thematic color */
+    height: 2px;
+    z-index: 3;
+}
+.rbc-current-time-indicator:before { /* Arrow for the indicator */
+    content: '▶'; /* Using a unicode character */
+    color: var(--color-accent-secondary, #50C878);
+    position: absolute;
+    left: -10px; /* Adjust to position correctly */
+    top: -7px; /* Adjust for vertical alignment */
+    font-size: 14px;
+}
+
+/* Selected Cell */
+.rbc-day-slot .rbc-selected-cell {
+    background-color: rgba(176, 141, 87, 0.15); /* var(--color-accent-gold) with low alpha */
+}
+
+/* Today's Date Highlighting */
+.rbc-today {
+    background-color: rgba(42, 57, 90, 0.7) !important; /* var(--color-bg-elevated) with some transparency */
+}
+.rbc-month-view .rbc-day-bg.rbc-today { /* Specifically for month view background */
+     background-color: rgba(42, 57, 90, 0.7) !important;
+}
+.rbc-header.rbc-today a, .rbc-header.rbc-today span { /* Header text for today */
+    color: var(--color-accent-gold-hover) !important;
+    font-weight: bold;
+}
+
+/* Drag Over Cell Style */
+.rbc-day-slot .rbc-drag-over {
+    background-color: rgba(80, 200, 120, 0.2) !important; /* var(--color-accent-secondary) with low alpha */
+}
+
+/* Default Event Styling (overridden by CustomEventComponent but good fallback) */
+.rbc-event {
+    border-radius: var(--border-radius-button);
+    padding: 4px 6px; /* Slightly more padding */
+    font-size: 0.9em; /* Consistent font size */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid transparent; /* Base border */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.rbc-event:focus {
+    outline: 2px solid var(--color-accent-secondary); /* Thematic focus */
+    outline-offset: 1px;
+}
+.rbc-event.rbc-selected { /* When event is clicked and library adds this class */
+    /* CustomEventComponent will handle its own selected appearance through isSelected prop */
+    /* This default can be a fallback or less specific */
+    background-color: var(--color-accent-gold-hover) !important; 
+    color: var(--color-text-on-accent) !important;
+    box-shadow: 0 0 0 2px var(--color-accent-gold) inset, 0 2px 5px rgba(0,0,0,0.3);
+}
+.rbc-event-label { /* Hides the default time label if not using custom component */
+    display: none;
+}
+.rbc-event-content { /* Ensure content (title) is visible */
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+
+/* Event Action Menu Styles */
+.event-action-menu {
+    position: absolute;
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-accent-gold);
+    border-radius: var(--border-radius-standard);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    z-index: 1070; /* Default z-index of rbc-overlay is 5, modal can be higher */
+    padding: 0.5rem;
+    min-width: 180px;
+}
+.event-action-menu-title {
+    font-family: var(--font-primary);
+    color: var(--color-accent-gold);
+    font-size: 0.9em;
+    font-weight: bold;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.event-action-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.event-action-menu li {
+    padding: 0.5rem 0.75rem;
+    color: var(--color-text-on-dark);
+    cursor: pointer;
+    font-family: var(--font-secondary);
+    font-size: 0.9em;
+    border-radius: var(--border-radius-button);
+}
+.event-action-menu li:hover {
+    background-color: var(--color-accent-gold);
+    color: var(--color-text-on-accent);
+}
+.event-action-menu li.disabled {
+    color: var(--color-text-on-dark-muted);
+    cursor: not-allowed;
+    background-color: transparent !important;
+}
+.event-action-menu li.delete:hover { /* Specific to delete actions */
+    background-color: var(--color-error) !important;
+    color: white !important;
+}
+.event-action-menu li.disabled.delete {
+    background-color: transparent !important;
+    color: var(--color-text-on-dark-muted) !important;
+}
+.event-action-menu .action-menu-separator {
+    border: none;
+    height: 1px;
+    background-color: var(--color-accent-gold-hover);
+    opacity: 0.5;
+    margin: 0.25rem 0;
+}
+
+/* Preview of item being dragged from outside */
+.rbc-addons-dnd-drag-preview {
+    background-color: rgba(80, 200, 120, 0.7); /* var(--color-accent-secondary) with alpha */
+    color: var(--color-text-on-dark);
+    padding: 3px 7px;
+    border-radius: 3px;
+    font-size: 0.9em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Calendar wrapper for flex growth */
+.calendar-wrapper {
+    /* height: calc(100% - 4em); Adjust if toolbar margin/padding changes, NO - this is main-area's job */
+    height: 100%; /* Take full height from parent */
+    position: relative;
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
+}
+
+.rbc-calendar-container { /* Class to apply to DragAndDropCalendar component via style prop */
+    flex-grow: 1;
+    min-height: 0; /* Important for flex children that need to scroll */
+}
+
+/* Calendar Mission Pool (Sidebar within Calendar Page) */
+.calendar-mission-pool-sidebar {
+    width: 300px; /* Fixed width */
+    min-width: 280px; /* Minimum width */
+    padding: 1rem;
+    background-color: var(--color-bg-content-area); /* Same as calendar area */
+    border-left: 1px solid var(--color-accent-gold); /* Separator */
+    border-radius: 0 var(--border-radius-standard) var(--border-radius-standard) 0; /* Rounded corners if desired */
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Match height of calendar-main-area */
+    box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+    flex-shrink: 0; 
+}
+
+.calendar-mission-pool-sidebar h4 {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-accent-gold-hover, #5b4b3a);
+    font-size: 1.3em; /* Larger title for "Pool" */
+}
+
+.calendar-mission-pool-sidebar .pool-mission-item {
+    cursor: grab;
+    font-size: 0.9em; /* Smaller items in the pool */
+    padding: 0.6rem 0.8rem;
+}
+.calendar-mission-pool-sidebar .pool-mission-item:active {
+    cursor: grabbing;
+    opacity: 0.7;
+}
+
+.calendar-mission-pool-sidebar .pool-mission-list {
+    flex-grow: 1; 
+    overflow-y: auto;
+    padding-right: 5px; 
+}
+.calendar-mission-pool-sidebar .pool-mission-actions button,
+.calendar-mission-pool-sidebar .pool-mission-actions .action-icon {
+    font-size: 0.8em; /* Smaller action buttons */
+    padding: 0.3rem 0.6rem;
+}
+.calendar-mission-pool-sidebar .mission-pool-filters {
+    padding: 0 0 0.5rem 0;
+    border-bottom: 1px solid var(--color-accent-gold-hover);
+    margin-bottom: 0.75rem;
+}
+.calendar-mission-pool-sidebar .mission-pool-filters select,
+.calendar-mission-pool-sidebar .mission-pool-filters input {
+    font-size: 0.9em;
+}
+
+/* frontend/src/styles/dashboard.css */
+
+/* Main page styling (if any, often in App.css or index.css for page-container) */
+.dashboard-page h2 {
+    margin-bottom: 0.5rem; 
+    font-family: var(--font-primary, 'Merriweather', serif);
+    color: var(--color-accent-gold, #B08D57);
+    /* text-align: center; /* Already in App.css's .page-container h2 */
+}
+.dashboard-page > p { /* For the welcome message */
+    font-size: 1.1em;
+    color: var(--color-text-on-dark-muted);
+    text-align: center; /* Welcome message centered */
+    margin-bottom: 1.5rem;
+}
+
+/* Masonry-like Panel Container */
+.dashboard-panels-flow-container {
+    /* display: flex; REMOVE FLEX */
+    /* flex-wrap: wrap; REMOVE FLEX */
+    /* gap: 1.5rem; Keep gap for columns */
     margin-top: 1.5rem;
-    align-items: flex-start; 
+    /* align-items: flex-start; REMOVE FLEX */
+
+    /* Masonry with CSS Columns */
+    column-count: 3; /* Default for Desktop */
+    column-gap: 1.5rem;
+    width: 100%; /* Ensure it takes available width */
 }
 
 .dashboard-panel {
@@ -20,24 +398,28 @@
     padding: 1rem 1.5rem;
     border-radius: var(--border-radius-standard, 8px);
     box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-    border-top: 3px solid var(--color-accent-gold); 
+    /* border-top: 3px solid var(--color-accent-gold); Dynamically applied for project panels */
     
-    flex: 1 1 calc(33.333% - 1.5rem); 
-    min-width: 320px; 
-    max-width: calc(50% - 0.75rem); 
-    display: flex;
+    /* Masonry item properties */
+    break-inside: avoid-column; /* Prevents panels from breaking across columns */
+    margin-bottom: 1.5rem; /* Space below each panel */
+    display: flex; /* To allow inner content to flex, e.g., list growing */
     flex-direction: column;
+    width: 100%; /* Ensure panel takes full width of its column */
+    box-sizing: border-box;
+
+    /* Removed flex-basis and max-width as column-count handles this now */
 }
-@media (max-width: 1200px) { 
-    .dashboard-panel {
-        flex-basis: calc(50% - 0.75rem); 
-        max-width: calc(50% - 0.75rem);
+
+/* Responsive adjustments for column-count */
+@media (max-width: 1200px) { /* Tablet-like screens */
+    .dashboard-panels-flow-container {
+        column-count: 2;
     }
 }
-@media (max-width: 768px) { 
-    .dashboard-panel {
-        flex-basis: 100%;
-        max-width: 100%;
+@media (max-width: 768px) { /* Mobile screens */
+    .dashboard-panels-flow-container {
+        column-count: 1;
     }
 }
 
@@ -69,14 +451,17 @@
     border-bottom: 1px dashed var(--color-bg-elevated);
 }
 
+/* Lists within panels */
 .panel-list-condensed {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 280px; 
-    overflow-y: auto;
+    /* max-height is panel-specific, handled by individual panel components if scroll needed */
+    flex-grow: 1; /* Allow list to take space if panel is flex-column */
+    overflow-y: auto; /* Add scroll if content exceeds panel height */
+    min-height: 50px; /* Give some base height */
 }
-
+/* Ensure items within these lists are styled appropriately */
 .panel-list-condensed .upcoming-item,
 .panel-list-condensed .habit-occurrence-item,
 .panel-list-condensed .pool-mission-item {
@@ -112,49 +497,7 @@
     font-size: 0.9em;
 }
 
-/* Styles for ProximosPanel Tabs */
-.panel-tabs {
-    display: flex;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--color-accent-gold-hover);
-}
-.tab-button {
-    font-family: var(--font-secondary);
-    font-size: 0.9em;
-    padding: 0.5rem 1rem;
-    border: none;
-    background-color: transparent;
-    color: var(--color-text-on-dark-muted);
-    cursor: pointer;
-    position: relative; /* For the active indicator */
-    transition: color 0.2s ease;
-}
-.tab-button:hover {
-    color: var(--color-accent-gold);
-}
-.tab-button.active {
-    color: var(--color-accent-gold);
-    font-weight: bold;
-}
-.tab-button.active::after {
-    content: '';
-    position: absolute;
-    bottom: -1px; /* Align with the panel's border-bottom */
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: var(--color-accent-gold);
-}
-
-/* Rescue Mission Panel Specifics */
-.rescue-missions-panel .action-btn { /* Example styling for rescue button */
-    border-color: var(--color-accent-secondary) !important;
-    color: var(--color-accent-secondary) !important;
-}
-.rescue-missions-panel .action-btn:hover {
-    background-color: rgba(var(--color-accent-secondary-rgb, 80, 200, 120), 0.15) !important;
-}
-
+/* Styles for ProximosPanel Tabs (and other tabbed panels) */
 .panel-tabs {
     display: flex;
     margin-bottom: 1rem;
@@ -169,86 +512,7 @@
     color: var(--color-text-on-dark-muted);
     cursor: pointer;
     position: relative; 
-    transition: color 0.2s ease;
-    border-radius: var(--border-radius-button) var(--border-radius-button) 0 0; /* Rounded top corners */
-}
-.tab-button:hover {
-    color: var(--color-accent-gold);
-    background-color: var(--color-bg-elevated); /* Subtle hover background */
-}
-.tab-button.active {
-    color: var(--color-accent-gold);
-    font-weight: bold;
-    background-color: var(--color-bg-elevated); /* Match active tab background */
-}
-.tab-button.active::after { /* Active indicator line */
-    content: '';
-    position: absolute;
-    bottom: -1px; 
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: var(--color-accent-gold);
-}
-
-/* Rescue Mission Panel Specifics */
-.rescue-missions-panel .action-btn.rescue-action-btn { /* For the main rescue action button */
-    border-color: var(--color-accent-secondary) !important;
-    color: var(--color-accent-secondary) !important;
-    background-color: transparent;
-    border-width: 1px;
-    border-style: solid;
-    padding: 0.4rem 0.8rem !important; /* Ensure consistent padding */
-    font-size: 0.9em !important; /* Ensure consistent font size */
-    border-radius: var(--border-radius-button) !important;
-}
-.rescue-missions-panel .action-btn.rescue-action-btn:hover {
-    background-color: rgba(80, 200, 120, 0.15) !important; /* Use accent-secondary for hover */
-    color: var(--color-accent-secondary) !important;
-}
-.rescue-missions-panel .upcoming-item-actions .action-btn { /* For other smaller icon buttons if any */
-     width: 26px;
-     height: 26px;
-}
-
-
-/* Recent Activity Panel - Undo Button */
-.recent-activity-panel .action-btn { /* For the undo button */
-    border-color: var(--color-warning) !important;
-    color: var(--color-warning) !important;
-    background-color: transparent;
-    font-size: 1.1em; /* Make undo icon a bit larger */
-}
-.recent-activity-panel .action-btn:hover {
-    background-color: rgba(255, 215, 0, 0.15) !important; /* Yellowish hover for undo */
-     color: var(--color-warning) !important;
-}
-
-/* General Panel list item adjustments for actions visibility */
-.panel-list-condensed .upcoming-item-actions {
-    opacity: 0.6; /* Dim actions slightly by default */
-    transition: opacity 0.2s ease-in-out;
-}
-.panel-list-condensed .upcoming-item:hover .upcoming-item-actions {
-    opacity: 1; /* Full opacity on hover of the item */
-}
-
-/* Styles for ProximosPanel Tabs */
-.panel-tabs {
-    display: flex;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--color-accent-gold-hover);
-}
-.tab-button {
-    font-family: var(--font-secondary);
-    font-size: 0.9em;
-    padding: 0.5rem 1rem;
-    border: none;
-    background-color: transparent;
-    color: var(--color-text-on-dark-muted);
-    cursor: pointer;
-    position: relative; 
-    transition: color 0.2s ease, background-color 0.2s ease; /* Added background-color transition */
+    transition: color 0.2s ease, background-color 0.2s ease;
     border-radius: var(--border-radius-button) var(--border-radius-button) 0 0; 
 }
 .tab-button:hover {
@@ -285,17 +549,16 @@
     background-color: rgba(80, 200, 120, 0.15) !important; 
     color: var(--color-accent-secondary) !important;
 }
-.rescue-missions-panel .upcoming-item-actions .action-btn { /* For smaller icon buttons */
-     width: auto; /* Let content define width for text buttons */
-     height: 28px; /* Consistent height */
-     padding: 0 0.5rem; /* Padding for text buttons */
+.rescue-missions-panel .upcoming-item-actions .action-btn { 
+     width: auto; 
+     height: 28px; 
+     padding: 0 0.5rem; 
 }
-.rescue-missions-panel .upcoming-item-actions .action-btn[title="Edit & Activate"] { /* Specific for edit icon */
-    font-size: 1em; /* Adjust if needed */
+.rescue-missions-panel .upcoming-item-actions .action-btn[title="Edit & Activate"] { 
+    font-size: 1em; 
     padding: 0.2rem 0.4rem;
-    min-width: 28px; /* Ensure it's clickable */
+    min-width: 28px; 
 }
-
 
 /* Recent Activity Panel - Undo Button */
 .recent-activity-panel .action-btn { 
@@ -303,7 +566,7 @@
     color: var(--color-warning) !important;
     background-color: transparent;
     font-size: 1.1em; 
-    border-radius: 50% !important; /* Make it circular like other action buttons */
+    border-radius: 50% !important; 
     width: 26px !important;
     height: 26px !important;
     padding: 0 !important;
@@ -324,16 +587,11 @@
     opacity: 1; 
 }
 
-/* Panel Flow Layout Refinements */
-.dashboard-panels-flow-container {
-    display: grid; /* Changed to grid */
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); /* Responsive columns */
-    gap: 1.5rem;
-    align-items: flex-start; /* Aligns items at the start of their grid area in the cross axis */
+/* ProjectTasksPanel Specific Styling (Ensure its borderTopColor from questInfo.color is applied dynamically) */
+.project-tasks-panel {
+    /* border-top is applied dynamically via style prop in the component */
+}
+.project-tasks-panel h3 { /* Style for the project panel title */
+    /* color is applied dynamically via style prop */
 }
 
-.dashboard-panel {
-    /* Removed flex properties, grid handles sizing */
-    /* min-width and max-width are now controlled by grid-template-columns */
-    /* border-top color is dynamically applied in ProjectTasksPanel based on questInfo?.color */
-}

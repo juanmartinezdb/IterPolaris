@@ -85,11 +85,7 @@ function DashboardPage({ activeTagFilters }) {
     
     return (
         <div className="page-container dashboard-page" style={{maxWidth: '1200px', margin: '0 auto'}}>
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
-                <h2>Dashboard</h2>
-            </div>
-            <p style={{marginBottom: '2rem'}}>Welcome back, {userName}! Ready for your next Quest?</p>
-            
+          
             {currentUser?.settings?.dashboard_panels && currentUser.settings.dashboard_panels.filter(p=>p.is_active).length === 0 && (
                  <div className="dashboard-panel" style={{textAlign: 'center'}}>
                     <p>Your dashboard is empty!</p>
