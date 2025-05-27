@@ -2,7 +2,7 @@
 import React from 'react';
 import { getContrastColor } from '../../utils/colorUtils';
 import '../../styles/habits.css';
-import '../../styles/missions-shared.css'; // For .tag-badge-sm
+import '../../styles/missions-shared.css'; // For energy display and item variants
 
 const formatTimeForDisplay = (isoString) => {
     if (!isoString) return 'N/A';
@@ -35,12 +35,25 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
         ? ` (~${occurrence.rec_duration_minutes} min)`
         : '';
     
-    // Asegurarse que occurrence.tags exista y sea un array
     const tagsToDisplay = Array.isArray(occurrence.tags) ? occurrence.tags : [];
+
+    let energyIcon = '';
+    let energyValueClass = 'neutral';
+    if (occurrence.energy_value > 0) {
+        energyIcon = '✨';
+        energyValueClass = 'positive';
+    } else if (occurrence.energy_value < 0) {
+        energyIcon = '💪';
+        energyValueClass = 'negative';
+    }
+
+    let itemEnergyClass = '';
+    if (occurrence.energy_value > 0) itemEnergyClass = 'item-variant-energy-positive';
+    else if (occurrence.energy_value < 0) itemEnergyClass = 'item-variant-energy-negative';
 
     return (
         <li 
-            className={`habit-occurrence-item status-${occurrence.status}`}
+            className={`habit-occurrence-item status-${occurrence.status} ${itemEnergyClass}`}
             style={{ borderLeftColor: questColor }}
         >
             <div className="habit-occurrence-main">
@@ -82,16 +95,18 @@ function HabitOccurrenceItem({ occurrence, onUpdateStatus, questColors = {} }) {
             {occurrence.description && (
                  <p className="habit-occurrence-description">{occurrence.description}</p>
             )}
-            {/* Display Tags for Habit Occurrence (from template) */}
             {tagsToDisplay.length > 0 && (
-                <div className="upcoming-item-tags-container" style={{ paddingLeft: '0', marginTop: '0.3rem' }}> {/* Adjusted padding */}
+                <div className="upcoming-item-tags-container" style={{ paddingLeft: '0', marginTop: '0.3rem' }}>
                     {tagsToDisplay.map(tag => (
                         <span key={tag.id} className="tag-badge-sm" title={`Tag: ${tag.name}`}>{tag.name}</span>
                     ))}
                 </div>
             )}
             <div className="habit-occurrence-meta">
-                <span>⚡ {occurrence.energy_value > 0 ? `+${occurrence.energy_value}` : occurrence.energy_value}</span>
+                <span className={`energy-display ${energyValueClass}`}>
+                    <span className="icon" role="img" aria-label={`Energy: ${energyValueClass}`}>{energyIcon}</span>
+                    <span className="value">{occurrence.energy_value > 0 ? `+${occurrence.energy_value}` : occurrence.energy_value}</span>
+                </span>
                 <span style={{marginLeft: '0.5rem'}}>⭐ {occurrence.points_value}</span>
             </div>
         </li>

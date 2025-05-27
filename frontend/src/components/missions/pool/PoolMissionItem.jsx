@@ -1,8 +1,8 @@
 // frontend/src/components/missions/pool/PoolMissionItem.jsx
 import React from 'react';
-import { getContrastColor } from '../../../utils/colorUtils'; // Importar la utilidad
-import '../../../styles/poolmissions.css';
-
+import { getContrastColor } from '../../../utils/colorUtils';
+import '../../../styles/poolmissions.css'; // Main styles
+import '../../../styles/missions-shared.css'; // For new energy display classes
 
 function PoolMissionItem({ 
     mission, 
@@ -39,9 +39,23 @@ function PoolMissionItem({
         }
     };
 
+    let energyIcon = '';
+    let energyValueClass = 'neutral';
+    if (mission.energy_value > 0) {
+        energyIcon = '✨';
+        energyValueClass = 'positive';
+    } else if (mission.energy_value < 0) {
+        energyIcon = '💪';
+        energyValueClass = 'negative';
+    }
+
+    let itemEnergyClass = '';
+    if (mission.energy_value > 0) itemEnergyClass = 'item-variant-energy-positive';
+    else if (mission.energy_value < 0) itemEnergyClass = 'item-variant-energy-negative';
+
     return (
         <li 
-            className={`pool-mission-item status-${mission.status}`} 
+            className={`pool-mission-item status-${mission.status} ${itemEnergyClass}`} 
             style={{ borderLeftColor: questColor }}
             draggable={mission.status === 'PENDING'}
             onDragStart={handleNativeDragStart}
@@ -75,12 +89,15 @@ function PoolMissionItem({
                         {mission.quest_name}
                     </span>
                 )}
-                <span>Energy: {mission.energy_value > 0 ? `+${mission.energy_value}` : mission.energy_value} | </span>
-                <span>Points: {mission.points_value}</span>
+                <span className={`energy-display ${energyValueClass}`}>
+                    <span className="icon" role="img" aria-label={`Energy: ${energyValueClass}`}>{energyIcon}</span>
+                    <span className="value">{mission.energy_value > 0 ? `+${mission.energy_value}` : mission.energy_value}</span>
+                </span>
+                <span>⭐ {mission.points_value}</span> {/* Using star for points */}
             </div>
 
             {mission.tags && mission.tags.length > 0 && (
-                <div className="pool-mission-tags-container">
+                <div className="pool-mission-tags-container"> {/* This class is from poolmissions.css */}
                     {mission.tags.map(tag => (
                         <span key={tag.id} className="pool-mission-tag-badge">{tag.name}</span>
                     ))}

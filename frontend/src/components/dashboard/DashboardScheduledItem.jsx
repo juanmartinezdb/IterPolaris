@@ -2,25 +2,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { getContrastColor } from '../../utils/colorUtils';
-import '../../styles/missions-shared.css'; // Reusing styles
+import '../../styles/missions-shared.css'; // Ensure this includes new energy classes
 
 const formatDateForDashboard = (isoString, isAllDayEvent) => {
     if (!isoString) return 'N/A';
     try {
         const date = new Date(isoString);
-        // For all-day events, just show "All-day" or the date if preferred
-        // For timed events, show the time.
         if (isAllDayEvent) {
             return "All-day"; 
         }
-
-        // Fallback for timed events or if is_all_day is not explicitly passed
         const options = {
-            // month: 'short', // Optional: if you want date for multi-day views
-            // day: 'numeric',   // Optional
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false 
+            hour: '2-digit', minute: '2-digit', hour12: false 
         };
         return date.toLocaleTimeString(navigator.language || 'en-GB', options);
     } catch (e) {
@@ -29,11 +21,9 @@ const formatDateForDashboard = (isoString, isAllDayEvent) => {
     }
 };
 
-
 function DashboardScheduledItem({ item, questColor, onStatusUpdate }) {
     const effectiveQuestColor = questColor || 'var(--color-accent-gold)';
     const textColor = getContrastColor(effectiveQuestColor);
-    // Use item.is_all_day directly if available, otherwise infer.
     const displayTime = formatDateForDashboard(item.start_datetime, item.is_all_day);
 
     const handleComplete = (e) => {
@@ -44,9 +34,23 @@ function DashboardScheduledItem({ item, questColor, onStatusUpdate }) {
         e.stopPropagation();
         if (onStatusUpdate) onStatusUpdate(item, 'SKIPPED');
     };
+
+    let energyIcon = '';
+    let energyValueClass = 'neutral';
+    if (item.energy_value > 0) {
+        energyIcon = '✨';
+        energyValueClass = 'positive';
+    } else if (item.energy_value < 0) {
+        energyIcon = '💪';
+        energyValueClass = 'negative';
+    }
+    
+    let itemEnergyClass = '';
+    if (item.energy_value > 0) itemEnergyClass = 'item-variant-energy-positive';
+    else if (item.energy_value < 0) itemEnergyClass = 'item-variant-energy-negative';
     
     return (
-        <li className="upcoming-item" style={{ borderLeftColor: effectiveQuestColor }}>
+        <li className={`upcoming-item ${itemEnergyClass}`} style={{ borderLeftColor: effectiveQuestColor }}>
             <div className="upcoming-item-main">
                 <div className="upcoming-item-info">
                     <span className="upcoming-item-type-badge" style={{ backgroundColor: effectiveQuestColor, color: textColor }}>
@@ -80,8 +84,8 @@ function DashboardScheduledItem({ item, questColor, onStatusUpdate }) {
                     </div>
                 )}
             </div>
-             {item.quest_name && (
-                <div className="upcoming-item-meta-row" style={{paddingLeft: 'calc(0.2em + 4px + 0.6rem)'}}>
+             <div className="upcoming-item-meta-row" style={{paddingLeft: 'calc(0.2em + 4px + 0.6rem)'}}>
+                {item.quest_name && (
                      <span 
                         className="quest-name-badge-sm" 
                         style={{ 
@@ -93,8 +97,13 @@ function DashboardScheduledItem({ item, questColor, onStatusUpdate }) {
                     >
                         {item.quest_name}
                     </span>
-                </div>
-            )}
+                )}
+                <span className={`energy-display ${energyValueClass}`} style={{marginLeft: item.quest_name ? '0.5rem' : '0'}}>
+                    <span className="icon" role="img" aria-label={`Energy: ${energyValueClass}`}>{energyIcon}</span>
+                    <span className="value">{item.energy_value > 0 ? `+${item.energy_value}` : item.energy_value}</span>
+                </span>
+                <span>⭐ {item.points_value}</span>
+            </div>
             {item.tags && item.tags.length > 0 && (
                 <div className="upcoming-item-tags-container" style={{paddingLeft: 'calc(0.2em + 4px + 0.6rem)'}}>
                     {item.tags.map(tag => (

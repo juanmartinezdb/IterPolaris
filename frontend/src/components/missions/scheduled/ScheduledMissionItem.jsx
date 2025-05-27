@@ -1,7 +1,8 @@
 // frontend/src/components/missions/scheduled/ScheduledMissionItem.jsx
 import React from 'react';
-import { getContrastColor } from '../../../utils/colorUtils'; // Import a la utilidad
+import { getContrastColor } from '../../../utils/colorUtils'; 
 import '../../../styles/scheduledmissions.css'; 
+import '../../../styles/missions-shared.css'; // For energy display and item variants
 
 const formatDateForDisplay = (isoString) => {
     if (!isoString) return 'N/A';
@@ -16,7 +17,6 @@ const formatDateForDisplay = (isoString) => {
     }
 };
 
-
 function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, questColors = {} }) {
     
     const questColor = mission.quest_id && questColors[mission.quest_id] 
@@ -29,9 +29,23 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
         onUpdateStatus(mission, newStatus);
     };
 
+    let energyIcon = '';
+    let energyValueClass = 'neutral';
+    if (mission.energy_value > 0) {
+        energyIcon = '✨';
+        energyValueClass = 'positive';
+    } else if (mission.energy_value < 0) {
+        energyIcon = '💪';
+        energyValueClass = 'negative';
+    }
+
+    let itemEnergyClass = '';
+    if (mission.energy_value > 0) itemEnergyClass = 'item-variant-energy-positive';
+    else if (mission.energy_value < 0) itemEnergyClass = 'item-variant-energy-negative';
+
     return (
         <li 
-            className={`scheduled-mission-item status-${mission.status}`} 
+            className={`scheduled-mission-item status-${mission.status} ${itemEnergyClass}`} 
             style={{ borderLeftColor: questColor }}
         >
             <div className="scheduled-mission-header">
@@ -44,6 +58,7 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
             <div className="scheduled-mission-datetime">
                 <div><span className="label">Starts:</span> {formatDateForDisplay(mission.start_datetime)}</div>
                 <div><span className="label">Ends:</span> {formatDateForDisplay(mission.end_datetime)}</div>
+                {mission.is_all_day && <div className="label" style={{textAlign:'right', fontSize: '0.9em'}}>(All-day)</div>}
             </div>
 
             {mission.description && (
@@ -65,8 +80,11 @@ function ScheduledMissionItem({ mission, onEdit, onDelete, onUpdateStatus, quest
                         {mission.quest_name}
                     </span>
                 )}
-                <span>Energy: {mission.energy_value > 0 ? `+${mission.energy_value}` : mission.energy_value} | </span>
-                <span>Points: {mission.points_value}</span>
+                <span className={`energy-display ${energyValueClass}`}>
+                    <span className="icon" role="img" aria-label={`Energy: ${energyValueClass}`}>{energyIcon}</span>
+                    <span className="value">{mission.energy_value > 0 ? `+${mission.energy_value}` : mission.energy_value}</span>
+                </span>
+                <span>⭐ {mission.points_value}</span>
             </div>
 
             {mission.tags && mission.tags.length > 0 && (

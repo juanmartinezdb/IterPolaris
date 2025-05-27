@@ -1,6 +1,8 @@
 // frontend/src/components/calendar/CustomEventComponent.jsx
 import React from 'react';
 import { getContrastColor } from '../../utils/colorUtils';
+// Ensure missions-shared.css is imported if its classes are used, or define styles here
+// For simplicity, explicit styling might be better here due to limited space in calendar events
 
 const getEventBaseColor = (event, questColors) => {
     const questId = event.resource?.questId;
@@ -17,36 +19,47 @@ function CustomEventComponent({ event, isSelected, questColors }) {
     const eventType = event.resource?.type;
     const status = event.resource?.status;
     const title = event.title || 'Untitled Event';
+    const energyValue = event.resource?.original?.energy_value ?? 0; // Get energy value
 
-    let iconSymbol = '';
-    let iconTitle = '';
+    let typeIconSymbol = '';
+    let typeIconTitle = '';
 
     if (eventType === 'SCHEDULED_MISSION') {
-        iconSymbol = '🎯';
-        iconTitle = 'Scheduled Mission';
+        typeIconSymbol = '🎯'; // Target for mission
+        typeIconTitle = 'Scheduled Mission';
     } else if (eventType === 'HABIT_OCCURRENCE') {
-        iconSymbol = '🔄';
-        iconTitle = 'Habit';
+        typeIconSymbol = '🔄'; // Repeat for habit
+        typeIconTitle = 'Habit';
     }
+
+    let energyIconSymbol = '';
+    if (energyValue > 0) energyIconSymbol = '✨';
+    else if (energyValue < 0) energyIconSymbol = '💪';
 
     const baseBgColor = getEventBaseColor(event, questColors);
     let effectiveBgColor = baseBgColor;
     let opacity = 1;
     let textDecoration = 'none';
-    // Use a more subtle border, or make it match background for PENDING unless selected
-    let borderColor = isSelected ? 'var(--color-accent-gold-hover, #c9a36a)' : effectiveBgColor;
+    
+    let energyBorderColor = 'transparent'; // Default no energy border
+    if (!isSelected) { // Only apply energy border if not selected
+        if (energyValue > 0) energyBorderColor = 'var(--color-feedback-info, #529BFF)';
+        else if (energyValue < 0) energyBorderColor = 'var(--color-energy-orange, #FFB26B)';
+    }
+    
+    let finalBorderColor = isSelected ? 'var(--color-accent-gold-hover, #c9a36a)' : (energyBorderColor !== 'transparent' ? energyBorderColor : baseBgColor);
 
 
     if (status === 'COMPLETED') {
-        opacity = 0.65; // Slightly less opaque
+        opacity = 0.60; 
         textDecoration = 'line-through';
         effectiveBgColor = '#4A5568'; 
-        borderColor = isSelected ? 'var(--color-accent-gold-hover, #c9a36a)' : '#3E4C59';
+        finalBorderColor = isSelected ? 'var(--color-accent-gold-hover, #c9a36a)' : '#3E4C59';
     } else if (status === 'SKIPPED') {
-        opacity = 0.5; // More opaque
+        opacity = 0.55; 
         textDecoration = 'line-through';
         effectiveBgColor = '#3A3A3A'; 
-        borderColor = isSelected ? 'var(--color-accent-gold-hover, #c9a36a)' : '#2D2D2D';
+        finalBorderColor = isSelected ? 'var(--color-accent-gold-hover, #c9a36a)' : '#2D2D2D';
     }
     
     const textColor = getContrastColor(effectiveBgColor);
@@ -55,17 +68,17 @@ function CustomEventComponent({ event, isSelected, questColors }) {
         backgroundColor: effectiveBgColor,
         color: textColor,
         opacity: opacity,
-        border: `1px solid ${borderColor}`, // Keep a border for definition, color matches bg for pending
-        borderRadius: 'var(--border-radius-button, 3px)', // Slightly less radius
-        padding: '1px 3px', // Minimal padding
+        border: `1px solid ${finalBorderColor}`,
+        borderRadius: 'var(--border-radius-button, 3px)',
+        padding: '1px 4px', // Adjusted padding
         fontSize: '0.8em', 
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
-        gap: '4px',
-        height: '100%', // Fill the event slot
+        gap: '3px', // Small gap between icons and title
+        height: '100%', 
         boxSizing: 'border-box',
-        boxShadow: isSelected ? '0 0 3px 1px var(--color-accent-gold)' : '0 1px 1px rgba(0,0,0,0.2)', // Softer shadow
+        boxShadow: isSelected ? '0 0 4px 1px var(--color-accent-gold)' : (energyBorderColor !== 'transparent' ? `0 0 3px ${energyBorderColor}` : '0 1px 1px rgba(0,0,0,0.15)'),
     };
 
     const titleStyle = {
@@ -74,19 +87,24 @@ function CustomEventComponent({ event, isSelected, questColors }) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
         flexGrow: 1,
-        // Ensure the library's own time label isn't pushing things around
-        // The global CSS .rbc-event-label { display: none !important; } should handle this.
+    };
+    
+    const iconStyle = {
+        fontSize: '0.9em',
+        flexShrink: 0,
+        lineHeight: 1,
     };
 
-    // The component itself should not render time.
-    // The default `eventTimeRangeFormat` of react-big-calendar might still try to add it.
-    // We can override `eventTimeRangeFormat` in CalendarPage.jsx to return an empty string.
-
     return (
-        <div style={eventWrapperStyle} title={`${iconTitle}: ${title}`}>
-            {iconSymbol && (
-                <span role="img" aria-label={iconTitle} style={{ fontSize: '0.9em', flexShrink: 0, marginRight: '2px' }}>
-                    {iconSymbol}
+        <div style={eventWrapperStyle} title={`${typeIconTitle}: ${title} (Energy: ${energyValue})`}>
+            {typeIconSymbol && (
+                <span role="img" aria-label={typeIconTitle} style={iconStyle}>
+                    {typeIconSymbol}
+                </span>
+            )}
+            {energyIconSymbol && energyValue !== 0 && ( // Only show energy icon if not zero
+                 <span role="img" aria-label={`Energy type: ${energyValue > 0 ? 'Restorative' : 'Effort'}`} style={{...iconStyle, color: energyValue > 0 ? 'var(--color-feedback-info)' : 'var(--color-energy-orange)'}}>
+                    {energyIconSymbol}
                 </span>
             )}
             <span style={titleStyle}>
