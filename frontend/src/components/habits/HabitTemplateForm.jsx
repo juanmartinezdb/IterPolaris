@@ -4,6 +4,8 @@ import axios from 'axios';
 import { UserContext } from '../../contexts/UserContext';
 import QuestSelector from '../quests/QuestSelector';
 import TagSelector from '../tags/TagSelector';
+import EnergySlider from '../common/formElements/EnergySlider'; // Import new component
+import PointsSelector from '../common/formElements/PointsSelector'; // Import new component
 import '../../styles/habittemplates.css';
 
 const API_HABIT_TEMPLATES_URL = `${import.meta.env.VITE_API_BASE_URL}/habit-templates`;
@@ -13,6 +15,7 @@ const formatDateForInput = (isoOrDateString) => {
     if (!isoOrDateString) return '';
     try {
         const date = new Date(isoOrDateString);
+        // Adjust for timezone for date input to show correctly
         const userTimezoneOffset = date.getTimezoneOffset() * 60000;
         const localDate = new Date(date.getTime() - userTimezoneOffset);
         return localDate.toISOString().split('T')[0];
@@ -21,26 +24,26 @@ const formatDateForInput = (isoOrDateString) => {
 
 const formatTimeForInput = (timeString) => {
     if (!timeString || typeof timeString !== 'string') return '';
-    return timeString.slice(0, 5);
+    return timeString.slice(0, 5); // HH:MM
 };
 
 const DAYS_OF_WEEK = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 const RECURRENCE_TYPE_DAILY = 'DAILY';
 
-function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQuestId = null }) { // Added initialQuestId
+function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQuestId = null }) {
     const { currentUser } = useContext(UserContext);
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        defaultEnergyValue: 5,
-        defaultPointsValue: 10,
+        defaultEnergyValue: 0,    // Default for EnergySlider
+        defaultPointsValue: 1,    // Default for PointsSelector
         recByDay: [],
         recStartTime: '',
         recDurationMinutes: 60,
         recPatternStartDate: formatDateForInput(new Date().toISOString()),
         recEndsOnDate: '',
         isActive: true,
-        questId: initialQuestId, // Use initialQuestId
+        questId: initialQuestId,
         selectedTagIds: []
     });
 
@@ -55,20 +58,20 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQues
                 setFormData({
                     title: templateToEdit.title || '',
                     description: templateToEdit.description || '',
-                    defaultEnergyValue: templateToEdit.default_energy_value ?? 5,
-                    defaultPointsValue: templateToEdit.default_points_value ?? 10,
+                    defaultEnergyValue: templateToEdit.default_energy_value ?? 0,
+                    defaultPointsValue: templateToEdit.default_points_value ?? 1,
                     recByDay: Array.isArray(templateToEdit.rec_by_day) ? templateToEdit.rec_by_day : [],
                     recStartTime: formatTimeForInput(templateToEdit.rec_start_time),
                     recDurationMinutes: templateToEdit.rec_duration_minutes ?? 60,
                     recPatternStartDate: formatDateForInput(templateToEdit.rec_pattern_start_date),
                     recEndsOnDate: formatDateForInput(templateToEdit.rec_ends_on_date),
                     isActive: templateToEdit.is_active === undefined ? true : templateToEdit.is_active,
-                    questId: templateToEdit.quest_id || initialQuestId || null, // Prioritize existing, then initial
+                    questId: templateToEdit.quest_id || initialQuestId || null,
                     selectedTagIds: templateToEdit.tags ? templateToEdit.tags.map(tag => tag.id) : []
                 });
             } else if (!isEditing) {
                 let questToSet = initialQuestId;
-                if (!questToSet) { // Only fetch default if no initialQuestId was provided
+                if (!questToSet) {
                     setIsFetchingDefaultQuest(true);
                     const token = localStorage.getItem('authToken');
                     try {
@@ -84,7 +87,8 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQues
                 }
                 setFormData(prev => ({
                     ...prev,
-                    title: '', description: '', defaultEnergyValue: 5, defaultPointsValue: 10,
+                    title: '', description: '', 
+                    defaultEnergyValue: 0, defaultPointsValue: 1, // Updated defaults
                     recByDay: [], recStartTime: '', recDurationMinutes: 60, 
                     recPatternStartDate: formatDateForInput(new Date().toISOString()), recEndsOnDate: '',
                     isActive: true, selectedTagIds: [],
@@ -102,6 +106,14 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQues
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+
+    // Specific handlers for new components
+    const handleEnergyChange = (newEnergyValue) => {
+        setFormData(prev => ({ ...prev, defaultEnergyValue: newEnergyValue }));
+    };
+    const handlePointsChange = (newPointsValue) => {
+        setFormData(prev => ({ ...prev, defaultPointsValue: newPointsValue }));
     };
 
     const handleQuestChange = (newQuestId) => {
@@ -159,8 +171,8 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQues
         const templateDataPayload = {
             title: formData.title.trim(),
             description: formData.description.trim() || null,
-            default_energy_value: parseInt(formData.defaultEnergyValue, 10),
-            default_points_value: parseInt(formData.defaultPointsValue, 10),
+            default_energy_value: formData.defaultEnergyValue, // Use direct value
+            default_points_value: formData.defaultPointsValue, // Use direct value
             rec_by_day: formData.recByDay,
             rec_start_time: formData.recStartTime ? `${formData.recStartTime}:00` : null, 
             rec_duration_minutes: formData.recDurationMinutes ? parseInt(formData.recDurationMinutes, 10) : null,
@@ -269,17 +281,19 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQues
 
                 <fieldset className="form-fieldset">
                     <legend>Values & Associations</legend>
-                    <div className="form-group-row">
-                        <div className="form-group">
-                            <label htmlFor="ht-energy">Default Energy:</label>
-                            <input type="number" id="ht-energy" name="defaultEnergyValue" value={formData.defaultEnergyValue} onChange={handleChange} required disabled={formDisabled} />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="ht-points">Default Points:</label>
-                            <input type="number" id="ht-points" name="defaultPointsValue" value={formData.defaultPointsValue} min="0" onChange={handleChange} required disabled={formDisabled} />
-                        </div>
-                    </div>
-                    <div className="form-group">
+                    {/* Energy Slider for defaultEnergyValue */}
+                    <EnergySlider
+                        value={formData.defaultEnergyValue}
+                        onChange={handleEnergyChange} // Use specific handler
+                        disabled={formDisabled}
+                    />
+                    {/* Points Selector for defaultPointsValue */}
+                    <PointsSelector
+                        value={formData.defaultPointsValue}
+                        onChange={handlePointsChange} // Use specific handler
+                        disabled={formDisabled}
+                    />
+                    <div className="form-group" style={{marginTop: 'var(--spacing-md)'}}> {/* Add margin if needed */}
                         <label htmlFor="ht-quest">Associate with Quest:</label>
                         <QuestSelector selectedQuestId={formData.questId} onQuestChange={handleQuestChange} disabled={formDisabled} isFilter={false} />
                     </div>
@@ -287,8 +301,8 @@ function HabitTemplateForm({ templateToEdit, onFormSubmit, onCancel, initialQues
                 </fieldset>
                 
                 <div className="form-group checkbox-label" style={{justifyContent: 'flex-start', marginTop: '1rem'}}>
-                    <input type="checkbox" id="ht-is-active" name="isActive" checked={formData.isActive} onChange={handleChange} disabled={formDisabled} />
-                    <label htmlFor="ht-is-active" style={{marginBottom: 0, marginLeft: '0.5rem', fontWeight:'normal', cursor:'pointer'}}> Habit is Active (generates occurrences)</label>
+                    <input type="checkbox" id="ht-is-active" name="isActive" checked={formData.isActive} onChange={handleChange} disabled={formDisabled} style={{width:'auto', marginRight:'0.5rem'}}/>
+                    <label htmlFor="ht-is-active" style={{marginBottom: 0, marginLeft: '0.2rem', fontWeight:'normal', cursor:'pointer'}}> Habit is Active (generates occurrences)</label>
                 </div>
 
                 <div className="form-actions">

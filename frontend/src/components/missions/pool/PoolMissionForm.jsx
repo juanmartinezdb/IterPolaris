@@ -3,17 +3,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import TagSelector from '../../tags/TagSelector';
 import QuestSelector from '../../quests/QuestSelector';
+import EnergySlider from '../../common/formElements/EnergySlider'; // Import new component
+import PointsSelector from '../../common/formElements/PointsSelector'; // Import new component
 import '../../../styles/poolmissions.css'; 
 
 const API_POOL_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/pool-missions`;
 const API_QUESTS_URL = `${import.meta.env.VITE_API_BASE_URL}/quests`;
 
-function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId = null }) { // Added initialQuestId
+function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId = null }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [energyValue, setEnergyValue] = useState(0);
-    const [pointsValue, setPointsValue] = useState(0);
-    const [questId, setQuestId] = useState(initialQuestId); // Use initialQuestId
+    // Default energyValue to 0 for the slider
+    const [energyValue, setEnergyValue] = useState(0); 
+    // Default pointsValue to one of the options, e.g., 1 or allow null then select
+    const [pointsValue, setPointsValue] = useState(1); 
+    const [questId, setQuestId] = useState(initialQuestId);
     const [selectedTagIds, setSelectedTagIds] = useState([]);
     const [focusStatus, setFocusStatus] = useState('ACTIVE');
 
@@ -34,6 +38,8 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId
                 const defaultQuest = quests.find(q => q.is_default_quest);
                 if (defaultQuest) {
                     setQuestId(defaultQuest.id);
+                } else if (quests.length > 0) {
+                    setQuestId(quests[0].id); // Fallback to first quest if no default
                 }
             } catch (err) {
                 console.error("Failed to fetch default quest for PoolMissionForm:", err);
@@ -42,7 +48,7 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isEditing, initialQuestId]); // questId removed from deps to avoid loop
+    }, [isEditing, initialQuestId]); 
 
     useEffect(() => {
         if (!isEditing && initialQuestId) {
@@ -52,24 +58,23 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId
         }
     }, [isEditing, initialQuestId, fetchAndSetDefaultQuest]);
 
-
     useEffect(() => {
         if (isEditing && missionToEdit) {
             setTitle(missionToEdit.title || '');
             setDescription(missionToEdit.description || '');
-            setEnergyValue(missionToEdit.energy_value || 0);
-            setPointsValue(missionToEdit.points_value || 0);
-            setQuestId(missionToEdit.quest_id || initialQuestId || null); // Prioritize mission's questId, then initial, then null
+            setEnergyValue(missionToEdit.energy_value || 0); // Default to 0 if undefined
+            setPointsValue(missionToEdit.points_value || 1); // Default to 1 if undefined
+            setQuestId(missionToEdit.quest_id || initialQuestId || null);
             setSelectedTagIds(missionToEdit.tags ? missionToEdit.tags.map(tag => tag.id) : []);
             setFocusStatus(missionToEdit.focus_status || 'ACTIVE');
         } else if (!isEditing) { 
             setTitle('');
             setDescription('');
-            setEnergyValue(10); 
-            setPointsValue(5);  
-            // QuestId is handled by the other useEffect or remains initialQuestId
+            setEnergyValue(0); // Default to 0 for new missions
+            setPointsValue(1);  // Default to 1 point for new missions
             setSelectedTagIds([]);
             setFocusStatus('ACTIVE');
+            // QuestId is handled by the other useEffect or remains initialQuestId
         }
     }, [missionToEdit, isEditing, initialQuestId]);
 
@@ -87,8 +92,8 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId
         const missionData = {
             title: title.trim(),
             description: description.trim() || null,
-            energy_value: parseInt(energyValue, 10),
-            points_value: parseInt(pointsValue, 10),
+            energy_value: energyValue, // Direct value from state
+            points_value: pointsValue, // Direct value from state
             quest_id: questId, 
             tag_ids: selectedTagIds,
             focus_status: focusStatus,
@@ -124,6 +129,8 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId
             setIsLoading(false);
         }
     };
+    
+    const formDisabled = isLoading || isFetchingDefaultQuest;
 
     return (
         <div className="pool-mission-form-container">
@@ -132,37 +139,44 @@ function PoolMissionForm({ missionToEdit, onFormSubmit, onCancel, initialQuestId
             <form onSubmit={handleSubmit} className="pool-mission-form">
                 <div className="form-group">
                     <label htmlFor="pm-title">Title:</label>
-                    <input type="text" id="pm-title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isLoading || isFetchingDefaultQuest} />
+                    <input type="text" id="pm-title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={formDisabled} />
                 </div>
                 <div className="form-group">
                     <label htmlFor="pm-description">Description (Optional):</label>
-                    <textarea id="pm-description" value={description} onChange={(e) => setDescription(e.target.value)} rows="3" disabled={isLoading || isFetchingDefaultQuest} />
+                    <textarea id="pm-description" value={description} onChange={(e) => setDescription(e.target.value)} rows="3" disabled={formDisabled} />
                 </div>
-                <div className="form-group">
-                    <label htmlFor="pm-energy">Energy Value:</label>
-                    <input type="number" id="pm-energy" value={energyValue} onChange={(e) => setEnergyValue(parseInt(e.target.value, 10))} disabled={isLoading || isFetchingDefaultQuest} />
-                </div>
-                <div className="form-group">
-                    <label htmlFor="pm-points">Points Value:</label>
-                    <input type="number" id="pm-points" value={pointsValue} min="0" onChange={(e) => setPointsValue(parseInt(e.target.value, 10))} disabled={isLoading || isFetchingDefaultQuest} />
-                </div>
+                
+                {/* New Energy Slider */}
+                <EnergySlider 
+                    value={energyValue}
+                    onChange={setEnergyValue}
+                    disabled={formDisabled}
+                />
 
+                {/* New Points Selector */}
+                <PointsSelector
+                    value={pointsValue}
+                    onChange={setPointsValue}
+                    disabled={formDisabled}
+                />
+                
                  <div className="form-group">
                     <label htmlFor="pm-quest">Associate with Quest:</label>
                     <QuestSelector 
                         selectedQuestId={questId} 
                         onQuestChange={(newQuestId) => setQuestId(newQuestId)}
-                        disabled={isLoading || isFetchingDefaultQuest}
+                        disabled={formDisabled}
                         isFilter={false} 
                     />
                 </div>
                 <TagSelector 
                     selectedTagIds={selectedTagIds}
                     onSelectedTagsChange={setSelectedTagIds}
+                    // disabled={formDisabled} // TagSelector does not currently accept disabled
                 />
                 <div className="form-group">
                     <label htmlFor="pm-focus">Focus Status:</label>
-                    <select id="pm-focus" value={focusStatus} onChange={(e) => setFocusStatus(e.target.value)} disabled={isLoading || isFetchingDefaultQuest}>
+                    <select id="pm-focus" value={focusStatus} onChange={(e) => setFocusStatus(e.target.value)} disabled={formDisabled}>
                         <option value="ACTIVE">Active (Ready to do)</option>
                         <option value="DEFERRED">Deferred (Maybe later)</option>
                     </select>

@@ -1,0 +1,115 @@
+/* frontend/src/styles/common/formElements/EnergySlider.css */
+.energy-slider-container {
+    margin-bottom: var(--spacing-md, 16px);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+
+.energy-slider-container label {
+    display: block;
+    margin-bottom: var(--spacing-sm, 8px);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.energy-value-display {
+    font-weight: bold;
+    padding: 0.2em 0.5em;
+    border-radius: var(--border-radius-button, 4px);
+    margin-left: var(--spacing-sm, 8px);
+    font-size: 1.1em;
+    min-width: 55px; /* Adjusted for icon */
+    display: inline-flex; /* For icon and text alignment */
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border: 1px solid transparent;
+}
+
+.energy-icon {
+    margin-right: 0.3em;
+    font-size: 0.9em; /* Adjust icon size if needed */
+    line-height: 1; /* Ensure icon aligns well with text */
+}
+
+/* Updated color classes for semantic meaning */
+.energy-value-display.effort { /* Formerly negative */
+    color: var(--color-energy-orange, #FFB26B);
+    background-color: rgba(255, 178, 107, 0.1);
+    border-color: var(--color-energy-orange, #FFB26B);
+}
+
+.energy-value-display.restorative { /* Formerly positive */
+    color: var(--color-feedback-info, #529BFF); /* Using a thematic blue */
+    background-color: rgba(82, 155, 255, 0.1);
+    border-color: var(--color-feedback-info, #529BFF);
+}
+
+.energy-value-display.neutral {
+    color: var(--color-text-on-dark-muted, #8892b0);
+    background-color: var(--color-bg-elevated, #21395A);
+    border-color: var(--color-text-on-dark-muted, #8892b0);
+}
+
+.energy-slider-input {
+    width: 100%;
+    height: 12px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--color-bg-deep-blue, #0A192F);
+    border-radius: 6px;
+    border: 1px solid var(--color-border-muted, #304057);
+    outline: none;
+    cursor: pointer;
+}
+
+.energy-slider-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--color-accent-gold, #B08D57);
+    border-radius: 50%;
+    border: 2px solid var(--color-bg-deep-blue, #0A192F);
+    cursor: grab;
+    transition: background-color 0.2s ease;
+    margin-top: -5px; 
+}
+
+.energy-slider-input::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--color-accent-gold, #B08D57);
+    border-radius: 50%;
+    border: 2px solid var(--color-bg-deep-blue, #0A192F);
+    cursor: grab;
+    transition: background-color 0.2s ease;
+}
+
+.energy-slider-input:hover::-webkit-slider-thumb {
+    background: var(--color-accent-gold-hover, #c9a36a);
+}
+.energy-slider-input:hover::-moz-range-thumb {
+    background: var(--color-accent-gold-hover, #c9a36a);
+}
+.energy-slider-input:active::-webkit-slider-thumb {
+    cursor: grabbing;
+}
+.energy-slider-input:active::-moz-range-thumb {
+    cursor: grabbing;
+}
+
+.energy-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8em;
+    color: var(--color-text-on-dark-muted, #8892b0);
+    padding: 0 2px;
+    margin-top: var(--spacing-xs, 4px);
+}
+.energy-slider-container.disabled .energy-slider-input,
+.energy-slider-container.disabled .energy-slider-input::-webkit-slider-thumb,
+.energy-slider-container.disabled .energy-slider-input::-moz-range-thumb {
+    cursor: not-allowed;
+    opacity: 0.7;
+}

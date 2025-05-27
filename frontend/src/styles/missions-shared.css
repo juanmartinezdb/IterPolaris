@@ -120,3 +120,93 @@
     padding: 1rem 0;
     font-size: 0.9em;
 }
+
+
+.upcoming-item-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem; /* Espacio entre badges */
+    margin-top: 0.5rem; /* Espacio sobre el contenedor de tags */
+    /* paddingLeft es manejado inline en los componentes, se puede remover de ahí y estandarizar aquí si se prefiere */
+}
+
+.tag-badge-sm {
+    display: inline-block;
+    background-color: var(--color-bg-elevated, #21395A);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    padding: 0.2em 0.6em; /* Padding ajustado para badges pequeños */
+    border-radius: 10px; /* Más redondeado para efecto "pill" */
+    font-size: 0.75em;   /* Tamaño de fuente para el badge */
+    font-weight: 500;
+    border: 1px solid var(--color-border-muted, #304057); /* Borde sutil */
+    line-height: 1.4; /* Mejorar legibilidad vertical */
+    white-space: nowrap; /* Evitar que el texto del tag se rompa en múltiples líneas */
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.tag-badge-sm:hover { /* Opcional: ligero feedback al pasar el mouse */
+    border-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-accent-gold, #B08D57);
+}
+
+/* frontend/src/styles/missions-shared.css */
+
+/* ... existing styles ... */
+
+.energy-display {
+  display: inline-flex; /* Align icon and text */
+  align-items: center;
+  font-weight: bold;
+}
+
+.energy-display .icon { /* Renamed from energy-icon for clarity */
+  margin-right: 0.25em; /* Space between icon and number */
+  font-size: 0.9em;   /* Adjust icon size as needed */
+  line-height: 1;
+}
+
+.energy-display.positive .value {
+  color: var(--color-feedback-info, #529BFF); /* Thematic Blue for positive energy */
+}
+.energy-display.positive .icon {
+  color: var(--color-feedback-info, #529BFF);
+}
+
+.energy-display.negative .value {
+  color: var(--color-energy-orange, #FFB26B); /* Thematic Orange for negative energy */
+}
+.energy-display.negative .icon {
+  color: var(--color-energy-orange, #FFB26B);
+}
+
+.energy-display.neutral .value {
+  color: var(--color-text-on-dark-muted, #8892b0);
+}
+/* No icon for neutral by default, or add a specific style if one is chosen */
+
+
+/* Subtle border/glow effect for items - applied to the main item container (e.g., .upcoming-item, .pool-mission-item) */
+/* These classes will be added dynamically in the JSX */
+.item-variant-energy-positive {
+  /* Combining with existing item shadows if any, or defining a new one */
+  /* This glow will be outside any existing border */
+  box-shadow: 0 0 6px 1px var(--color-feedback-info, #529BFF); 
+}
+
+.item-variant-energy-negative {
+  box-shadow: 0 0 6px 1px var(--color-energy-orange, #FFB26B);
+}
+
+/* Ensure default item styles accommodate the shadow without looking strange */
+/* For example, if items already have a box-shadow, we might need to layer them carefully,
+   or this new shadow could replace a less specific one. */
+
+/* Styles for energy display in meta rows (e.g., within .upcoming-item-meta-row) */
+.upcoming-item-meta-row .energy-display,
+.pool-mission-meta .energy-display, /* For PoolMissionItem */
+.scheduled-mission-meta .energy-display, /* For ScheduledMissionItem */
+.habit-occurrence-meta .energy-display { /* For HabitOccurrenceItem */
+    /* Adjust font size or spacing if needed within these specific contexts */
+    font-size: 1em; /* Make it inherit or match surrounding meta text */
+    margin-right: var(--spacing-sm); /* Space before points */
+}

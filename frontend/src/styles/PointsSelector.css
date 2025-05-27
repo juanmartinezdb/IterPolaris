@@ -1,0 +1,113 @@
+/* frontend/src/styles/common/formElements/PointsSelector.css */
+.points-selector-container {
+    margin-bottom: var(--spacing-md, 16px);
+    font-family: var(--font-secondary, 'Lato', sans-serif);
+}
+
+.points-selector-container label {
+    display: block;
+    margin-bottom: var(--spacing-sm, 8px);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.points-options-group {
+    display: flex;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap; 
+    align-items: center; /* Align items if they have different heights due to scaling */
+}
+
+.point-option-button {
+    font-family: var(--font-primary, 'Merriweather', serif);
+    background-color: var(--color-bg-elevated, #21395A);
+    color: var(--color-text-on-dark-muted, #8892b0);
+    border: 1px solid var(--color-border-muted, #304057);
+    border-radius: var(--border-radius-button, 4px);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease-out;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    /* Base padding and font-size, specific classes will override */
+    padding: var(--spacing-sm, 8px) var(--spacing-md, 16px);
+    font-size: 0.9em; 
+}
+
+/* Size-based styling */
+.point-option-button.points-sm {
+    padding: calc(var(--spacing-sm) * 0.8) calc(var(--spacing-md) * 0.8); /* 6.4px 12.8px */
+    min-width: 50px;
+}
+.point-option-button.points-md {
+    padding: var(--spacing-sm) calc(var(--spacing-md) * 0.9); /* 8px 14.4px */
+    min-width: 55px;
+}
+.point-option-button.points-lg {
+    padding: var(--spacing-sm) var(--spacing-md); /* 8px 16px */
+    min-width: 60px;
+}
+.point-option-button.points-xl {
+    padding: calc(var(--spacing-sm) * 1.1) calc(var(--spacing-md) * 1.1); /* 8.8px 17.6px */
+    min-width: 65px;
+    font-size: 1em; /* Slightly larger font for the 10pt button */
+}
+
+
+.point-option-button:hover:not(:disabled) {
+    background-color: var(--color-bg-content-area, #172A45);
+    border-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-accent-gold, #B08D57);
+    transform: translateY(-2px) scale(1.02); /* Slight lift and scale */
+}
+
+.point-option-button.active {
+    background-color: var(--color-accent-gold, #B08D57);
+    color: var(--color-text-on-accent, #0A192F);
+    border-color: var(--color-accent-gold-hover, #c9a36a);
+    font-weight: bold;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 2px 3px rgba(0,0,0,0.2);
+    transform: translateY(0) scale(1.05); /* Active button slightly larger */
+}
+
+.point-option-button .point-value {
+    font-size: 1.2em; /* Made value slightly larger */
+    font-weight: bold;
+    display: block;
+    line-height: 1.1;
+}
+.point-option-button .point-label {
+    font-size: 0.65em; /* Made 'pts' label smaller */
+    text-transform: uppercase;
+    opacity: 0.7;
+    display: block;
+}
+
+.points-selector-container.disabled .point-option-button {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.points-selector-container.disabled .point-option-button:hover {
+    transform: none;
+}
+
+/* Animation for the 10-point active button */
+@keyframes goldPulsePoints {
+    0% { 
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 4px 2px rgba(212, 175, 55, 0.3); /* D4AF37 is --color-accent-gold-light */
+        border-color: var(--color-accent-gold-light);
+    }
+    50% { 
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 10px 5px rgba(212, 175, 55, 0.6);
+        border-color: var(--color-accent-gold-light);
+    }
+    100% { 
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 4px 2px rgba(212, 175, 55, 0.3);
+        border-color: var(--color-accent-gold-light);
+    }
+}
+
+.point-option-button.points-10-active { /* Only apply to the 10 points button when active */
+    animation: goldPulsePoints 1.8s infinite ease-in-out;
+    border-color: var(--color-accent-gold-light, #D4AF37) !important; /* Ensure border matches glow */
+}

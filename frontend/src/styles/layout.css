@@ -219,24 +219,37 @@
     margin-top: 1.5rem; /* Space before TagFilter */
     position: relative; /* For dropdown positioning */
 }
+
 .add-new-button-sidebar {
-    display: block;
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     width: 100%;
-    padding: 0.75rem 1rem;
+    padding: 0.75rem 1rem; /* Aumentado ligeramente el padding vertical */
     font-family: var(--font-primary, 'Merriweather', serif);
-    background-color: var(--color-accent-secondary, #50C878);
-    color: var(--color-text-on-accent, #0A192F);
-    border: none;
+    background-color: var(--color-accent-gold, #B08D57); /* Cambiado a dorado principal */
+    color: var(--color-text-on-accent, #0A192F); /* Texto oscuro sobre dorado */
+    border: 1px solid var(--color-accent-gold-hover, #c9a36a); /* Borde sutil */
     border-radius: var(--border-radius-button, 4px);
     cursor: pointer;
     font-weight: bold;
-    font-size: 1em;
+    font-size: 1.05em; /* Ligeramente más grande */
     text-align: center;
     transition: var(--transition-swift, all 0.3s ease-in-out);
+    /* Sombra para dar profundidad y separación */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25), 
+                inset 0 -1px 1px rgba(0,0,0,0.1), 
+                inset 0 1px 0px rgba(255,255,255,0.05); 
 }
 .add-new-button-sidebar:hover {
-    opacity: 0.9;
-    box-shadow: 0 2px 8px rgba(80, 200, 120, 0.3);
+    background-color: var(--color-accent-gold-hover, #c9a36a);
+    color: var(--color-text-on-accent, #0A192F);
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3),
+                inset 0 -1px 1px rgba(0,0,0,0.15),
+                inset 0 1px 0px rgba(255,255,255,0.05);
+    transform: translateY(-1px); /* Ligero levantamiento */
+    opacity: 1; /* Asegurar opacidad completa en hover */
 }
 
 .add-new-dropdown {

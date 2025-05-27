@@ -1,9 +1,11 @@
 // frontend/src/components/missions/scheduled/ScheduledMissionForm.jsx
-import React, { useState, useEffect, useContext } from 'react'; // Removed useCallback
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { UserContext } from '../../../contexts/UserContext';
 import TagSelector from '../../tags/TagSelector';
 import QuestSelector from '../../quests/QuestSelector';
+import EnergySlider from '../../common/formElements/EnergySlider'; // Import new component
+import PointsSelector from '../../common/formElements/PointsSelector'; // Import new component
 import '../../../styles/scheduledmissions.css';
 
 const API_SCHEDULED_MISSIONS_URL = `${import.meta.env.VITE_API_BASE_URL}/scheduled-missions`;
@@ -53,8 +55,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
     const [formData, setFormData] = useState({
         title: '',
         description: '',
-        energyValue: 0,
-        pointsValue: 0,
+        energyValue: 0,       // Default for EnergySlider
+        pointsValue: 1,       // Default for PointsSelector
         startDatetime: '', 
         endDatetime: '',   
         isAllDay: false,  
@@ -76,9 +78,13 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
             let initialStartDt = '';
             let initialEndDt = '';
             let currentQuestId = effectiveInitialQuestId || null;
+            let initialEnergy = 0; // Default for new
+            let initialPoints = 1; // Default for new
 
             if (isEditing) {
                 initialIsAllDay = missionToEdit.is_all_day || false;
+                initialEnergy = missionToEdit.energy_value || 0;
+                initialPoints = missionToEdit.points_value || 1;
                 if (initialIsAllDay) {
                     initialStartDt = formatDateForDateInput(missionToEdit.start_datetime);
                 } else {
@@ -88,8 +94,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                 setFormData({
                     title: missionToEdit.title || '',
                     description: missionToEdit.description || '',
-                    energyValue: missionToEdit.energy_value || 0,
-                    pointsValue: missionToEdit.points_value || 0,
+                    energyValue: initialEnergy,
+                    pointsValue: initialPoints,
                     startDatetime: initialStartDt,
                     endDatetime: initialEndDt,
                     isAllDay: initialIsAllDay,
@@ -99,6 +105,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                 });
             } else if (isConverting) {
                 initialIsAllDay = slotInfo.allDay || false; 
+                initialEnergy = missionToEdit.energy_value || 0;
+                initialPoints = missionToEdit.points_value || 1;
                  if (initialIsAllDay) {
                     initialStartDt = formatDateForDateInput(slotInfo.start);
                 } else {
@@ -108,8 +116,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                  setFormData({
                     title: missionToEdit.title || '', 
                     description: missionToEdit.description || '',
-                    energyValue: missionToEdit.energy_value || 0,
-                    pointsValue: missionToEdit.points_value || 0,
+                    energyValue: initialEnergy,
+                    pointsValue: initialPoints,
                     startDatetime: initialStartDt,
                     endDatetime: initialEndDt,
                     isAllDay: initialIsAllDay,
@@ -120,6 +128,9 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
             } else if (slotInfo) { 
                 setIsFetchingDefaultQuest(true);
                 initialIsAllDay = slotInfo.allDay || (slotInfo.slots && slotInfo.slots.length === 1);
+                // For new from calendar, sensible defaults for energy/points
+                initialEnergy = 0; 
+                initialPoints = 1; 
                 if (initialIsAllDay) {
                     initialStartDt = formatDateForDateInput(slotInfo.start);
                 } else {
@@ -127,7 +138,7 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                     initialEndDt = formatDateTimeForInput(slotInfo.end);
                 }
                 
-                if (!currentQuestId) { // Only fetch default if no initialQuestId was provided
+                if (!currentQuestId) {
                     const token = localStorage.getItem('authToken');
                      try {
                         const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -137,7 +148,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                     } catch (err) { /* currentQuestId remains null */ }
                 }
                 setFormData({
-                    title: '', description: '', energyValue: 10, pointsValue: 5,
+                    title: '', description: '', 
+                    energyValue: initialEnergy, pointsValue: initialPoints,
                     startDatetime: initialStartDt,
                     endDatetime: initialEndDt,
                     isAllDay: initialIsAllDay,
@@ -145,13 +157,15 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                     selectedTagIds: [], status: 'PENDING'
                 });
                 setIsFetchingDefaultQuest(false); 
-            } else { // Creating new from "Add" button (no slotInfo)
+            } else { 
                 setIsFetchingDefaultQuest(true);
                 const now = new Date();
                 initialStartDt = formatDateTimeForInput(now.toISOString());
                 initialEndDt = formatDateTimeForInput(new Date(now.getTime() + 60 * 60 * 1000).toISOString());
+                initialEnergy = 0; 
+                initialPoints = 1;
                 
-                if (!currentQuestId) { // Only fetch default if no initialQuestId was provided
+                if (!currentQuestId) {
                     const token = localStorage.getItem('authToken');
                     try {
                         const response = await axios.get(API_QUESTS_URL, { headers: { 'Authorization': `Bearer ${token}` } });
@@ -161,7 +175,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                     } catch (err) { /* currentQuestId remains null */ }
                 }
                 setFormData({
-                    title: '', description: '', energyValue: 10, pointsValue: 5,
+                    title: '', description: '', 
+                    energyValue: initialEnergy, pointsValue: initialPoints,
                     startDatetime: initialStartDt,
                     endDatetime: initialEndDt,
                     isAllDay: false, 
@@ -187,6 +202,14 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
             setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
         }
         setError('');
+    };
+    
+    // Specific handlers for new components
+    const handleEnergyChange = (newEnergyValue) => {
+        setFormData(prev => ({ ...prev, energyValue: newEnergyValue }));
+    };
+    const handlePointsChange = (newPointsValue) => {
+        setFormData(prev => ({ ...prev, pointsValue: newPointsValue }));
     };
 
     const handleQuestChange = (newQuestId) => setFormData(prev => ({ ...prev, questId: newQuestId || null }));
@@ -228,8 +251,8 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
         const missionDataPayload = {
             title: formData.title.trim(),
             description: formData.description.trim() || null,
-            energy_value: parseInt(formData.energyValue, 10),
-            points_value: parseInt(formData.pointsValue, 10),
+            energy_value: formData.energyValue, // Use direct value from state
+            points_value: formData.pointsValue, // Use direct value from state
             start_datetime: finalStartDatetimeISO,
             end_datetime: finalEndDatetimeISO, 
             is_all_day: formData.isAllDay,
@@ -250,7 +273,7 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                 response = await axios.post(API_SCHEDULED_MISSIONS_URL, missionDataPayload, config);
                 if (isConverting && slotInfo.convertingPoolMissionId) {
                     await axios.delete(`${API_POOL_MISSIONS_URL}/${slotInfo.convertingPoolMissionId}`, config);
-                    onFormSubmit(response.data, true); // Pass true for conversion
+                    onFormSubmit(response.data, true); 
                 } else {
                     onFormSubmit(response.data);
                 }
@@ -324,16 +347,21 @@ function ScheduledMissionForm({ missionToEdit, slotInfo, onFormSubmit, onCancel,
                     <label htmlFor="sm-description">Description (Optional):</label>
                     <textarea id="sm-description" name="description" value={formData.description} onChange={handleChange} rows="3" disabled={formDisabled} />
                 </div>
-                 <div className="form-group-row">
-                    <div className="form-group">
-                        <label htmlFor="sm-energy">Energy Value:</label>
-                        <input type="number" id="sm-energy" name="energyValue" value={formData.energyValue} onChange={handleChange} disabled={formDisabled} />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="sm-points">Points Value:</label>
-                        <input type="number" id="sm-points" name="pointsValue" min="0" value={formData.pointsValue} onChange={handleChange} disabled={formDisabled} />
-                    </div>
-                </div>
+                
+                {/* Energy Slider */}
+                <EnergySlider 
+                    value={formData.energyValue}
+                    onChange={handleEnergyChange}
+                    disabled={formDisabled}
+                />
+
+                {/* Points Selector */}
+                <PointsSelector
+                    value={formData.pointsValue}
+                    onChange={handlePointsChange}
+                    disabled={formDisabled}
+                />
+
                 <div className="form-group">
                     <label htmlFor="sm-quest">Associate with Quest:</label>
                     <QuestSelector selectedQuestId={formData.questId} onQuestChange={handleQuestChange} disabled={formDisabled} />
